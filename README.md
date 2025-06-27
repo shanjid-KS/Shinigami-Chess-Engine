@@ -60,6 +60,50 @@ To run Shinigami Chess Engine, install the following dependencies.
    ```sh
    pip install python-chess numpy scipy
    ```
+
+---
+
+## Android Notes
+
+- **File Storage**:
+  - Place all engine resources (`nnue_weights.bin`, `book.bin`, tablebases, `shinigami_engine.log`) in `/storage/emulated/0/shinigami/`.
+  - Create the directory if it doesn’t exist:
+    ```sh
+    mkdir /storage/emulated/0/shinigami
+    ```
+  - Ensure Pydroid 3 has storage permissions (grant via Android settings).
+  - Alternatively, files can be placed in Pydroid 3’s internal storage (`/data/data/ru.iiec.pydroid3/files/`), but `/storage/emulated/0/shinigami/` is recommended for accessibility.
+
+- **Performance**:
+  - Use "easy" or "medium" modes (depth ≤ 8) to avoid slowdowns on mobile devices.
+  - Multiprocessing is limited to 1 core by default to prevent crashes. Use `--cores 1` when running:
+    ```sh
+    python shinigami.py --cores 1
+    ```
+
+- **Dependencies**:
+  - Install via Pydroid 3’s terminal:
+    ```sh
+    pip install python-chess numpy scipy
+    ```
+  - If `scipy` fails, use:
+    ```sh
+    pip install --index-url https://www.piwheels.org/simple scipy
+    ```
+
+- **Running the Engine**:
+  - Console mode: Run `python shinigami.py` in Pydroid 3 and select a difficulty.
+  - UCI mode: Use a chess app like DroidFish, running:
+    ```sh
+    python shinigami.py --uci
+    ```
+
+- **Troubleshooting**:
+  - **Missing Files**: Ensure `nnue_weights.bin` and `book.bin` are in `/storage/emulated/0/shinigami/`. Download from [GitHub Releases](https://github.com/Tonmoy-KS/Shinigami-Chess-Engine/releases).
+  - **Permission Errors**: Grant storage permissions in Android settings.
+  - **Crashes**: Reduce NNUE size (edit `AdvancedNNUEEvaluator.hidden_size1` to 128) or disable tablebases.
+  - Check `shinigami_engine.log` in `/storage/emulated/0/shinigami/` or console output for errors.
+
 ---
 
 ## License
