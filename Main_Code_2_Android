@@ -1,7 +1,7 @@
 ```Python_Android
 #!/usr/bin/env python3
 """
-Shinigami V.1.10.2 - Professional Chess Engine with Full Tree Parallelization
+Shinigami V.1.10.2 - Professional Chess Engine
 Author: Tonmoy-KS
 License: MIT License
 """
