@@ -51,16 +51,16 @@ class ShinigamiConfig:
         'hard': {'base': 600, 'increment': 5},
         'god-of-death': {'base': 1200, 'increment': 10},
         'puzzle': {'base': 300, 'increment': 0},
-        'masochist': {'base': 1800, 'increment': 15}
+        'masochist': {'base': 720, 'increment': 15}
     }
 
     DEPTHS = {
         'easy': 3,
         'medium': 6,
-        'hard': 12,
+        'hard': 18,
         'god-of-death': 50,
         'puzzle': 8,
-        'masochist': 400
+        'masochist': 200,
 
     }
 
@@ -133,7 +133,7 @@ class ShinigamiConfig:
         ]
     }
 
-    OPENING_BOOK = {'e4': 'e5', 'd4': 'd5', 'Nf3': 'Nf6', 'c4': 'e6'}  # Extended basic book
+    OPENING_BOOK = {'e4': 'e5', 'd4': 'd5', 'Nf3': 'Nf6', 'c4': 'e6'}
     TRASH_TALK = {
         "move": [
             "I just Alt+F4'd your hopes. Your move, mortal.",
@@ -520,7 +520,7 @@ class ShinigamiEngine:
             logging.warning(f"Invalid difficulty input: {difficulty_input}")
         
         if difficulty == "masochist":
-            print("Masochist mode activated! Your CPU is about to meet its maker.")
+            print("Masochist mode activated! Your CPU is Going to Suffer!.")
         print(f"AI set to {difficulty.replace('-', ' ').title()} mode (depth: {depth}). Let's make this quick.")
         print("Enter moves in algebraic notation (e.g., 'e4'). Type 'quit' to flee, 'puzzle' for a challenge, or 'uci' for UCI mode.")
         print(f"NNUE: {'Enabled' if self.config.USE_NNUE else 'Disabled'}")
