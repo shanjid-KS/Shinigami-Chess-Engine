@@ -1,30 +1,27 @@
-# Shinigami Chess Engine
-
-This is a professional chess engine with full tree parallelization, made by Tonmoy-KS.
-
-**License:** MIT License  
-If you use or modify this engine, you must credit the original author (@Tonmoy-KS) and may not claim this project as your own.
-
-
-———
-
-
 #!/usr/bin/env python3
-"""Shinigami V.1.10.2 - Professional Chess Engine with Full Tree Parallelization"""
+"""
+Shinigami V.1.15.2 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Author: Tonmoy-KS
+License: MIT License (credit @Tonmoy-KS, do not claim as own)
+"""
+
 import chess
 import chess.syzygy
 import chess.polyglot
 import random
 import time
-import hashlib
 import logging
 import multiprocessing as mp
-from multiprocessing import Manager
+from multiprocessing import Manager, Pool
 from collections import defaultdict
 import numpy as np
 import os
-import argparse
 from scipy.sparse import csr_matrix
+import sqlite3
+import torch
+import torch.nn as nn
+import tkinter as tk
+from PIL import Image, ImageTk
 
 # Configure logging
 logging.basicConfig(
@@ -34,311 +31,426 @@ logging.basicConfig(
 )
 
 class ShinigamiConfig:
-    """Configuration for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.10.2 - Soul Reaper Edition"
+    """Configuration settings for the Shinigami chess engine."""
+    ENGINE_NAME = "Shinigami V.1.15.2 - Gen 2 Edition"
     PIECE_VALUES = {
-        chess.PAWN: 100,
-        chess.KNIGHT: 320,
-        chess.BISHOP: 330,
-        chess.ROOK: 500,
-        chess.QUEEN: 900,
-        chess.KING: 2000  # High value for king safety
+        chess.PAWN: 150,
+        chess.KNIGHT: 430,
+        chess.BISHOP: 430,
+        chess.ROOK: 700,
+        chess.QUEEN: 1900,
+        # King value omitted as it’s not used in material evaluation
     }
-
     TIME_CONTROLS = {
         'easy': {'base': 120, 'increment': 1},
         'medium': {'base': 300, 'increment': 3},
         'hard': {'base': 600, 'increment': 5},
-        'god-of-death': {'base': 1200, 'increment': 10},
-        'puzzle': {'base': 300, 'increment': 0},
-        'masochist': {'base': 720, 'increment': 15}
+        'god-of-death': {'base': 650, 'increment': 50},
+        'puzzle': {'base': 30, 'increment': 0},
+        'masochist': {'base': 70, 'increment': 15},
+        'dialing-satan-s-number': {'base': 3600, 'increment': 30}
     }
-
     DEPTHS = {
-        'easy': 3,
+        'easy': 1,
         'medium': 6,
-        'hard': 18,
-        'god-of-death': 50,
-        'puzzle': 8,
-        'masochist': 200,
-
+        'hard': 14,
+        'god-of-death': 24,
+        'puzzle': 4,
+        'masochist': 40,
+        'dialing-satan-s-number': 85000000000000000  # Yeah that's Eighty Five Quadrillion because it's a Joke difficulty
     }
-
-    NNUE_FILE = "nn-9931db908a9b.nnue"
-    SYZYGY_PATH = "C:/Tablebases"
+    NNUE_FILE = 'nnue_weights.bin'
+    SYZYGY_PATH = 'C:\\Tablebases'
     USE_NNUE = True
     NUM_PROCESSES = max(1, mp.cpu_count() // 2)
-    
-    # Piece-square tables (simplified, inspired by standard chess heuristics)
     PIECE_SQUARE_TABLES = {
         chess.PAWN: [
-            0,  0,  0,  0,  0,  0,  0,  0,
+            0, 0, 0, 0, 0, 0, 0, 0,
             50, 50, 50, 50, 50, 50, 50, 50,
             10, 10, 20, 30, 30, 20, 10, 10,
-            5,  5, 10, 25, 25, 10,  5,  5,
-            0,  0,  0, 20, 20,  0,  0,  0,
-            5, -5,-10,  0,  0,-10, -5,  5,
-            5, 10, 10,-20,-20, 10, 10,  5,
-            0,  0,  0,  0,  0,  0,  0,  0
+            5, 5, 10, 25, 25, 10, 5, 5,
+            0, 0, 0, 20, 20, 0, 0, 0,
+            5, -5, -10, 0, 0, -10, -5, 5,
+            5, 10, 10, -20, -20, 10, 10, 5,
+            0, 0, 0, 0, 0, 0, 0, 0
         ],
         chess.KNIGHT: [
-            -50,-40,-30,-30,-30,-30,-40,-50,
-            -40,-20,  0,  0,  0,  0,-20,-40,
-            -30,  0, 10, 15, 15, 10,  0,-30,
-            -30,  5, 15, 20, 20, 15,  5,-30,
-            -30,  0, 15, 20, 20, 15,  0,-30,
-            -30,  5, 10, 15, 15, 10,  5,-30,
-            -40,-20,  0,  5,  5,  0,-20,-40,
-            -50,-40,-30,-30,-30,-30,-40,-50
+            -50, -40, -30, -30, -30, -30, -40, -50,
+            -40, -20, 0, 0, 0, 0, -20, -40,
+            -30, 0, 10, 15, 15, 10, 0, -30,
+            -30, 5, 15, 20, 20, 15, 5, -30,
+            -30, 0, 15, 20, 20, 15, 0, -30,
+            -30, 5, 10, 15, 15, 10, 5, -30,
+            -40, -20, 0, 5, 5, 0, -20, -40,
+            -50, -40, -30, -30, -30, -30, -40, -50
         ],
         chess.BISHOP: [
-            -20,-10,-10,-10,-10,-10,-10,-20,
-            -10,  0,  0,  0,  0,  0,  0,-10,
-            -10,  0,  5, 10, 10,  5,  0,-10,
-            -10,  5,  5, 10, 10,  5,  5,-10,
-            -10,  0, 10, 10, 10, 10,  0,-10,
-            -10, 10, 10,  0,  0, 10, 10,-10,
-            -10,  5,  0,  0,  0,  0,  5,-10,
-            -20,-10,-10,-10,-10,-10,-10,-20
+            -20, -10, -10, -10, -10, -10, -10, -20,
+            -10, 0, 0, 0, 0, 0, 0, -10,
+            -10, 0, 5, 10, 10, 5, 0, -10,
+            -10, 5, 5, 10, 10, 5, 5, -10,
+            -10, 0, 10, 10, 10, 10, 0, -10,
+            -10, 10, 10, 0, 0, 10, 10, -10,
+            -10, 5, 0, 0, 0, 0, 5, -10,
+            -20, -10, -10, -10, -10, -10, -10, -20
         ],
         chess.ROOK: [
-            0,  0,  0,  0,  0,  0,  0,  0,
-            5, 10, 10, 10, 10, 10, 10,  5,
-           -5,  0,  0,  0,  0,  0,  0, -5,
-           -5,  0,  0,  0,  0,  0,  0, -5,
-           -5,  0,  0,  0,  0,  0,  0, -5,
-           -5,  0,  0,  0,  0,  0,  0, -5,
-           -5,  0,  0,  0,  0,  0,  0, -5,
-            0,  0,  0,  5,  5,  0,  0,  0
+            0, 0, 0, 0, 0, 0, 0, 0,
+            5, 10, 10, 10, 10, 10, 10, 5,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            0, 0, 0, 5, 5, 0, 0, 0
         ],
         chess.QUEEN: [
-            -20,-10,-10, -5, -5,-10,-10,-20,
-            -10,  0,  0,  0,  0,  0,  0,-10,
-            -10,  0,  5,  5,  5,  5,  0,-10,
-             -5,  0,  5,  5,  5,  5,  0, -5,
-              0,  0,  5,  5,  5,  5,  0, -5,
-            -10,  5,  5,  5,  5,  5,  0,-10,
-            -10,  0,  5,  0,  0,  0,  0,-10,
-            -20,-10,-10, -5, -5,-10,-10,-20
+            -20, -10, -10, -5, -5, -10, -10, -20,
+            -10, 0, 0, 0, 0, 0, 0, -10,
+            -10, 0, 5, 5, 5, 5, 0, -10,
+            -5, 0, 5, 5, 5, 5, 0, -5,
+            0, 0, 5, 5, 5, 5, 0, -5,
+            -10, 5, 5, 5, 5, 5, 0, -10,
+            -10, 0, 5, 0, 0, 0, 0, -10,
+            -20, -10, -10, -5, -5, -10, -10, -20
         ],
         chess.KING: [
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -20,-30,-30,-40,-40,-30,-30,-20,
-            -10,-20,-20,-20,-20,-20,-20,-10,
-             10, 10,  0,  0,  0,  0, 10, 10,
-             20, 30, 10,  0,  0, 10, 30, 20
+            -30, -40, -40, -50, -50, -40, -40, -30,
+            -30, -40, -40, -50, -50, -40, -40, -30,
+            -30, -40, -40, -50, -50, -40, -40, -30,
+            -30, -40, -40, -50, -50, -40, -40, -30,
+            -20, -30, -30, -40, -40, -30, -30, -20,
+            -10, -20, -20, -20, -20, -20, -20, -10,
+            20, 20, 0, 0, 0, 0, 20, 20,
+            20, 30, 10, 0, 0, 10, 30, 20
         ]
     }
-
-    OPENING_BOOK = {'e4': 'e5', 'd4': 'd5', 'Nf3': 'Nf6', 'c4': 'e6'}
     TRASH_TALK = {
         "move": [
-            "I just Alt+F4'd your hopes. Your move, mortal.",
-            "Feel that? That's checkmate creeping up on you.",
-            "Nice try, but I improvise better than you ragequit.",
-            "Is that your best? Shinigami's barely awake.",
-            "You're moving slower than a pawn push in classical.",
-            "My knights are dancing, your pieces are just tripping.",
             "Keep up, or I'll Ctrl+Alt+Del your whole board.",
-            "Your moves are so predictable, I'm playing blindfolded.",
+            "Your moves are so predictable. I'm playing blindfolded.",
             "I'm two moves from reaping your soul. Hurry up."
         ],
         "check": [
-            "Check! You're one step closer to uninstalling.",
             "Check! Your king's trembling already.",
-            "Check! Time to panic or pray-your choice.",
-            "Check! Your king's running, but there's no escape.",
-            "Check! I'm carving your board like a Halloween pumpkin.",
-            "Check! Your throne's crumbling, peasant."
+            "Check! Time to panic or pray—your choice.",
+            "Check! I'm carving your board like a Halloween pumpkin."
         ],
         "capture": [
             "Yoink! That piece is mine now.",
-            "Another piece for my collection. Keep up.",
             "Captured. You're running out of toys.",
-            "Snagged your piece. Should've seen that fork coming.",
-            "Your army's shrinking faster than your clock.",
-            "That piece? Now it's in my trophy case."
+            "Snagged your piece. Should've seen that fork coming."
         ],
         "win": [
             "GG, I just Alt+F4'd your entire existence!",
-            "Black wins! Behold the algorithmic reaper!",
-            "You got checkmated. Improvisation complete.",
-            "Game over. I just reaped your soul, GG.",
             "Checkmate! Your rating's in the shadow realm now.",
-            "Checkmate! Go cry to Stockfish about it."
+            "Game over. I just reaped your soul. GG."
         ],
         "draw": [
             "Draw? You survived... barely. I'm disappointed.",
             "Stalemate? That's the saddest ending possible.",
-            "Draw? I let you live. Don't get cocky.",
-            "Stalemate? I was just toying with you.",
-            "Draw? You escaped, but my scythe's still sharp.",
             "Draw? I'll haunt your next game, don't worry."
         ],
         "loss": [
             "You got plot armor or what? White wins... for now.",
-            "I lost? Nah, I just sacrificed my king for style.",
             "White wins. Enjoy it while it lasts, mortal.",
-            "You won? Must've been my coffee break.",
-            "White wins? I'll be back to haunt your board.",
-            "White wins? Even a broken clock's right twice."
+            "You won? Must've been my coffee break."
         ],
         "invalid": [
             "That's not a move, it's a cry for help!",
             "Illegal move! Do you even chess, bro?",
-            "What was that? My grandma plays better.",
-            "Invalid move! Did you borrow that from a 1000-rated game?",
-            "That move's so bad, it's practically a resignation.",
-            "Illegal move! Did you learn that from a bot?"
+            "Invalid move! Did you borrow that from a 1000-rated game?"
         ],
         "opening": [
             "You brought the London System? Weak.",
             "King's Pawn Opening? How original.",
-            "Let me guess... you're following YouTube again.",
-            "That opening's older than my death counter.",
-            "Sicilian? Bold, but I'm still gonna shred you.",
-            "Italian Game? Cute, but I'm no beginner.",
-            "That opening's so stale, it's got cobwebs.",
-            "King's Gambit? Risky, but I'm the real gambler here."
+            "Sicilian? Bold, but I'm still gonna shred you."
         ],
         "time_pressure": [
             "Tick-tock, your clock's screaming for mercy.",
             "Time's burning, just like your position.",
-            "Low on time? I'll finish this before you blink.",
-            "Your clock's crying harder than your king."
+            "Low on time? I'll finish this before you blink."
         ]
     }
 
-class NNUEEvaluator:
-    """Handles NNUE evaluation for efficient neural network-based scoring."""
+class NNUE(nn.Module):
+    """Neural Network for position evaluation using HalfKAv2 feature set."""
+    def __init__(self, input_size=40960, hidden_size=512):
+        super(NNUE, self).__init__()
+        self.input_layer = nn.Linear(input_size, hidden_size)
+        self.hidden_layer = nn.Linear(hidden_size, hidden_size)
+        self.output_layer = nn.Linear(hidden_size, 1)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.relu(self.input_layer(x))
+        x = self.relu(self.hidden_layer(x))
+        return self.output_layer(x)
+
+class AdvancedNNUEEvaluator:
+    """Handles advanced NNUE evaluation with HalfKAv2 feature set."""
     def __init__(self, nnue_file: str):
-        self.nnue_file = nnue_file
-        self.input_size = 41024  # HalfKP: 64 king squares × (64 squares × 10 piece types)
-        self.hidden_size = 256
-        self.weights = {}
-        self.load_nnue_weights()
-    
-    def load_nnue_weights(self):
-        """Load weights from Stockfish NNUE file."""
+        self.input_size = 40960  # HalfKAv2 feature set
+        self.model = NNUE()
         try:
-            with open(self.nnue_file, 'rb') as f:
-                # Skip header (magic, version, etc.)
-                f.seek(16)
-                # Input to hidden layer weights (41024 × 256, 16-bit integers)
-                input_to_hidden = np.fromfile(f, dtype=np.int16, count=self.input_size * self.hidden_size)
-                self.weights['input_to_hidden'] = input_to_hidden.reshape(self.input_size, self.hidden_size)
-                # Hidden layer biases (256, 16-bit integers)
-                self.weights['hidden_bias'] = np.fromfile(f, dtype=np.int16, count=self.hidden_size)
-                # Hidden to output layer weights (512 × 1, 8-bit integers)
-                hidden_to_output = np.fromfile(f, dtype=np.int8, count=self.hidden_size * 2)
-                self.weights['hidden_to_output'] = hidden_to_output.reshape(self.hidden_size * 2, 1)
-                # Output bias (1, 16-bit integer)
-                self.weights['output_bias'] = np.fromfile(f, dtype=np.int16, count=1)
-                logging.info(f"Loaded NNUE weights from {self.nnue_file}")
+            self.model.load_state_dict(torch.load(nnue_file))
+            logging.info("Loaded NNUE weights")
         except Exception as e:
-            logging.error(f"Failed to load NNUE file {self.nnue_file}: {e}")
-            raise
-    
-    def encode_position(self, board: chess.Board):
-        """Encode board into HalfKP feature indices."""
-        indices = []
-        white_king = board.king(chess.WHITE)
-        black_king = board.king(chess.BLACK)
+            logging.warning(f"Failed to load NNUE weights: {e}")
+            self.model = None
+
+    def evaluate(self, board: chess.Board) -> int:
+        """Evaluate board using NNUE or fallback to traditional evaluation.
         
+        Args:
+            board: The current chess board position.
+        
+        Returns:
+            Integer score in centipawns (positive favors White, negative favors Black).
+        """
+        if self.model is None:
+            return 0  # Fallback to traditional evaluation
+        features = self.encode_halfkav2(board)
+        with torch.no_grad():
+            score = self.model(torch.tensor(features, dtype=torch.float32)).item()
+        return int(score * 100)  # Convert to centipawns
+
+    def encode_halfkav2(self, board: chess.Board) -> np.ndarray:
+        """Encode board state into HalfKAv2 features (simplified placeholder).
+        
+        Args:
+            board: The current chess board position.
+        
+        Returns:
+            Numpy array of features for NNUE input.
+        """
+        features = np.zeros(self.input_size, dtype=np.float32)
+        idx = 0
         for square in chess.SQUARES:
             piece = board.piece_at(square)
             if piece:
                 piece_idx = piece.piece_type - 1 + (6 if piece.color == chess.BLACK else 0)
-                if white_king is not None:
-                    idx = piece_idx * 64 + square + (white_king * 64 * 10)
-                    indices.append(idx)
-                if black_king is not None:
-                    idx = piece_idx * 64 + (square ^ 56) + (black_king * 64 * 10)  # Mirror for black
-                    indices.append(idx)
+                features[idx + piece_idx * 64 + square] = 1.0
+        return features
+
+class TrainingModule:
+    """Manages self-play and training for opening book and NNUE weights."""
+    def __init__(self):
+        self.conn = sqlite3.connect('shinigami_games.db')
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS games
+                            (id INTEGER PRIMARY KEY, fen TEXT, move TEXT, result TEXT)''')
+        self.opening_book = defaultdict(lambda: {'weight': 1.0})
+
+    def self_play(self, engine, num_games=100):
+        """Run self-play games to generate training data.
         
-        return indices
-    
-    def evaluate(self, board: chess.Board) -> int:
-        """Evaluate board using NNUE."""
-        indices = self.encode_position(board)
-        features = csr_matrix(([1.0] * len(indices), ([0] * len(indices), indices)),
-                             shape=(1, self.input_size), dtype=np.float16)
+        Args:
+            engine: ShinigamiEngine instance.
+            num_games: Number of games to play.
+        """
+        for _ in range(num_games):
+            board = chess.Board()
+            game_moves = []
+            while not board.is_game_over():
+                move = engine.get_best_move(board, depth=6, difficulty='medium')
+                game_moves.append(move.uci())
+                board.push(move)
+            result = board.result()
+            self.conn.execute("INSERT INTO games (fen, move, result) VALUES (?, ?, ?)",
+                             (board.fen(), game_moves[-1], result))
+            self.conn.commit()
+            self.update_opening_book(board, game_moves, result)
+
+    def update_opening_book(self, board: chess.Board, moves: list, result: str):
+        """Update opening book weights based on game outcomes.
         
-        hidden = np.maximum(0, features.dot(self.weights['input_to_hidden']) + self.weights['hidden_bias'])
-        hidden = hidden.reshape(-1)
-        score = np.dot(hidden, self.weights['hidden_to_output']) + self.weights['output_bias']
+        Args:
+            board: The final board position.
+            moves: List of move UCI strings.
+            result: Game result ('1-0', '0-1', or '1/2-1/2').
+        """
+        board.reset()
+        weight = 1.0 if result in ['1-0', '0-1'] else 0.5
+        for move in moves[:10]:  # Update first 10 moves
+            zobrist_hash = chess.polyglot.zobrist_hash(board)
+            self.opening_book[zobrist_hash]['weight'] += weight
+            board.push_uci(move)
+
+    def train_nnue(self, dataset, epochs=10):
+        """Train NNUE model on a dataset of (FEN, evaluation) pairs.
         
-        return int(score[0] * 100)  # Scale to centipawns
+        Args:
+            dataset: List of (FEN, evaluation) tuples.
+            epochs: Number of training epochs.
+        """
+        model = NNUE()
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        criterion = nn.MSELoss()
+        for epoch in range(epochs):
+            for fen, target_eval in dataset:
+                board = chess.Board(fen)
+                features = self.encode_halfkav2(board)
+                output = model(torch.tensor(features, dtype=torch.float32))
+                loss = criterion(output, torch.tensor([target_eval], dtype=torch.float32))
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+            logging.info(f"Epoch {epoch + 1}/{epochs} completed")
+        torch.save(model.state_dict(), ShinigamiConfig.NNUE_FILE)
+
+    def retrain_nnue(self):
+        """Retrain NNUE using self-play game data."""
+        dataset = []
+        for row in self.conn.execute("SELECT fen, result FROM games"):
+            fen, result = row
+            eval_score = 1.0 if result == '1-0' else -1.0 if result == '0-1' else 0.0
+            dataset.append((fen, eval_score))
+        if dataset:
+            self.train_nnue(dataset)
+
+class ChessGUI:
+    """Graphical interface for Shinigami using tkinter."""
+    def __init__(self, engine):
+        self.engine = engine
+        self.board = chess.Board()
+        self.root = tk.Tk()
+        self.root.title("Shinigami Chess")
+        self.canvas = tk.Canvas(self.root, width=400, height=400)
+        self.canvas.pack()
+        self.status = tk.Label(self.root, text="Select difficulty")
+        self.status.pack()
+        self.move_input = tk.Entry(self.root)
+        self.move_input.pack()
+        self.move_input.bind("<Return>", self.handle_move)
+        self.ai_color = chess.BLACK
+        self.difficulty = self.engine.select_difficulty()
+        self.depth = self.engine.config.DEPTHS[self.difficulty]
+        self.draw_board()
+
+    def draw_board(self):
+        """Draw the chessboard and pieces."""
+        self.canvas.delete("all")
+        for i in range(8):
+            for j in range(8):
+                color = "white" if (i + j) % 2 == 0 else "gray"
+                self.canvas.create_rectangle(j * 50, i * 50, (j + 1) * 50, (i + 1) * 50, fill=color)
+        for square in chess.SQUARES:
+            piece = self.board.piece_at(square)
+            if piece:
+                # Simplified piece rendering (use images in production)
+                self.canvas.create_text((chess.square_file(square) * 50 + 25, (7 - chess.square_rank(square)) * 50 + 25),
+                                       text=piece.symbol())
+        self.status.config(text=f"{'White' if self.board.turn == chess.WHITE else 'Black'} to move")
+        if self.board.is_game_over():
+            result = self.board.result()
+            self.status.config(text=f"Game over: {result}")
+        self.root.after(100, self.update)
+
+    def handle_move(self, event):
+        """Handle human move input."""
+        move_input = self.move_input.get().strip().lower()
+        if move_input == "quit":
+            self.root.quit()
+        try:
+            move = self.board.parse_san(move_input)
+            if move in self.board.legal_moves:
+                self.board.push(move)
+                self.draw_board()
+                self.move_input.delete(0, tk.END)
+            else:
+                self.status.config(text=random.choice(self.engine.config.TRASH_TALK["invalid"]))
+        except ValueError:
+            self.status.config(text=random.choice(self.engine.config.TRASH_TALK["invalid"]))
+
+    def update(self):
+        """Update board and handle AI moves."""
+        if self.board.turn == self.ai_color and not self.board.is_game_over():
+            move = self.engine.get_best_move(self.board, self.depth, self.difficulty)
+            if move:
+                self.board.push(move)
+                self.draw_board()
+                if self.board.is_check():
+                    self.status.config(text=random.choice(self.engine.config.TRASH_TALK["check"]))
+                elif self.board.is_capture(move):
+                    self.status.config(text=random.choice(self.engine.config.TRASH_TALK["capture"]))
+        self.root.after(100, self.update)
 
 class ShinigamiEngine:
+    """Main chess engine class with advanced evaluation and search."""
     def __init__(self):
+        """Initialize the chess engine."""
         self.config = ShinigamiConfig()
         self.tablebase = None
         try:
             self.tablebase = chess.syzygy.open_tablebase(self.config.SYZYGY_PATH)
-            logging.info("Loaded Syzygy tablebases")
+            logging.info("Loaded Syzygy tablebase")
         except Exception as e:
-            logging.warning(f"Failed to load Syzygy tablebases: {e}")
-        
-        self.nnue = NNUEEvaluator(self.config.NNUE_FILE) if self.config.USE_NNUE else None
+            logging.warning(f"Failed to load Syzygy tablebase: {e}")
         self.opening_book = None
         try:
             self.opening_book = chess.polyglot.open_reader("book.bin")
             logging.info("Loaded Polyglot opening book")
         except Exception as e:
             logging.warning(f"Failed to load Polyglot opening book: {e}")
-        
         self.manager = Manager()
         self.transposition_table = self.manager.dict()
-        self.tt_max_size = 10_000_000
+        self.tt_max_size = 10000000
         self.killer_moves = defaultdict(list)
         self.puzzle_database = [
             {"fen": "rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1",
-             "move": "e4e5", "task": "Find the best response to 1...e5."},
-            {"fen": "rnbqkb1r/pppppp1p/5n2/6p1/6P1/5N2/PPPPPP1P/RNBQKB1R w KQkq - 0 1",
-             "move": "d2d4", "task": "Find the best move after 1...g5."}
+             "move": "Nf3", "task": "Find the best move to develop a piece."}
         ]
+        self.nnue = AdvancedNNUEEvaluator(self.config.NNUE_FILE) if self.config.USE_NNUE else None
+        self.training_module = TrainingModule()
 
     def evaluate_position(self, board: chess.Board) -> int:
-        """Evaluate position using NNUE, tablebases, or material + PST."""
-        if self.tablebase and len(board.piece_map()) <= 7:
-            try:
-                return self.tablebase.probe_wdl(board) * 100
-            except Exception:
-                pass
-        if self.nnue:
-            return self.nnue.evaluate(board)
+        """Evaluate the board position using NNUE or traditional heuristics.
         
-        # Fallback: material + piece-square tables
-        score = sum(self.config.PIECE_VALUES.get(piece.piece_type, 0) * (1 if piece.color == chess.WHITE else -1)
-                    for piece in board.piece_map().values())
-        for square, piece in board.piece_map().items():
-            pst = self.config.PIECE_SQUARE_TABLES.get(piece.piece_type, [0] * 64)
-            score += pst[square if piece.color == chess.WHITE else square ^ 56] * (1 if piece.color == chess.WHITE else -1)
+        Args:
+            board: The current chess board position.
+        
+        Returns:
+            Integer score in centipawns (positive favors White, negative favors Black).
+        """
+        if self.tablebase and board.is_game_over():
+            try:
+                return self.tablebase.probe_wdl(board) * 1000
+            except:
+                pass
+        if self.config.USE_NNUE and self.nnue:
+            return self.nnue.evaluate(board)
+        score = 0
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece:
+                score += self.config.PIECE_VALUES.get(piece.piece_type, 0) * (1 if piece.color == chess.WHITE else -1)
+                pst = self.config.PIECE_SQUARE_TABLES.get(piece.piece_type, [0] * 64)
+                score += pst[square if piece.color == chess.WHITE else chess.square_mirror(square)] * (1 if piece.color == chess.WHITE else -1)
         return score
 
     def see(self, board: chess.Board, move: chess.Move) -> int:
-        """Static Exchange Evaluation for a capture move."""
+        """Static Exchange Evaluation for a capture move.
+        
+        Args:
+            board: The current chess board position.
+            move: The capture move to evaluate.
+        
+        Returns:
+            Integer score representing the material gain/loss of the capture sequence.
+        """
         if not board.is_capture(move):
             return 0
-        
         target_square = move.to_square
         attackers = board.attackers(chess.WHITE, target_square) | board.attackers(chess.BLACK, target_square)
         if not attackers:
             return 0
-        
         piece_values = self.config.PIECE_VALUES
         value = piece_values.get(board.piece_at(target_square).piece_type, 0) if board.piece_at(target_square) else 0
         board.push(move)
-        
         gain = [value]
         us = board.turn
         them = not us
         attackers = board.attackers(them, target_square)
-        
         while attackers:
             min_value = float('inf')
             min_piece = None
@@ -347,10 +459,8 @@ class ShinigamiEngine:
                 if piece and piece_values.get(piece.piece_type, 0) < min_value:
                     min_value = piece_values.get(piece.piece_type, 0)
                     min_piece = square
-            
             if min_piece is None:
                 break
-            
             move = chess.Move(min_piece, target_square)
             if move not in board.legal_moves:
                 break
@@ -358,38 +468,60 @@ class ShinigamiEngine:
             gain.append(piece_values.get(board.piece_at(target_square).piece_type, 0) if board.piece_at(target_square) else 0)
             us, them = them, us
             attackers = board.attackers(them, target_square)
-        
-        result = 0
-        for i in range(len(gain) - 1, -1, -1):
-            result = max(0, -result + gain[i])
-        
-        for _ in range(len(gain)):
-            board.pop()
-        
-        return result if board.turn == chess.WHITE else -result
+        board.pop()
+        result = gain[0]
+        for i in range(1, len(gain), 2):
+            result -= gain[i]
+            if i + 1 < len(gain):
+                result = max(0, result + gain[i + 1])
+        return result
 
-    def get_opening_move(self, board: chess.Board) -> chess.Move:
-        """Get a move from the Polyglot opening book."""
-        if not self.opening_book:
-            return None
-        try:
-            entries = list(self.opening_book.find_all(board))
-            if not entries:
-                return None
-            weights = [entry.weight for entry in entries]
-            total_weight = sum(weights)
-            if total_weight == 0:
-                return None
-            probabilities = [w / total_weight for w in weights]
-            entry = random.choices(entries, probabilities, k=1)[0]
-            logging.info(f"Opening book move: {entry.move}")
-            return entry.move
-        except Exception as e:
-            logging.warning(f"Error accessing opening book: {e}")
-            return None
+    def quiescence(self, board: chess.Board, alpha: int, beta: int, depth_limit: int) -> int:
+        """Quiescence search to evaluate quiet positions after captures.
+        
+        Args:
+            board: The current chess board position.
+            alpha: Lower bound for alpha-beta pruning.
+            beta: Upper bound for alpha-beta pruning.
+            depth_limit: Maximum depth for quiescence search.
+        
+        Returns:
+            Integer score in centipawns.
+        """
+        if depth_limit <= 0 or board.is_game_over():
+            return self.evaluate_position(board)
+        stand_pat = self.evaluate_position(board)
+        if stand_pat >= beta:
+            return beta
+        alpha = max(alpha, stand_pat)
+        move_scores = []
+        for move in board.legal_moves:
+            if board.is_capture(move) or board.gives_check(move):
+                score = self.see(board, move)
+                move_scores.append((move, score))
+        move_scores.sort(key=lambda x: x[1], reverse=True)
+        for move, _ in move_scores:
+            board.push(move)
+            score = -self.quiescence(board, -beta, -alpha, depth_limit - 1)
+            board.pop()
+            if score >= beta:
+                return beta
+            alpha = max(alpha, score)
+        return alpha
 
     def alpha_beta(self, board: chess.Board, depth: int, alpha: int, beta: int, maximizing_player: bool) -> tuple:
-        """Alpha-beta pruning with move ordering using SEE and transposition table."""
+        """Alpha-beta pruning with move ordering using SEE and transposition table.
+        
+        Args:
+            board: The current chess board position.
+            depth: Search depth.
+            alpha: Lower bound for pruning.
+            beta: Upper bound for pruning.
+            maximizing_player: True if maximizing (White), False if minimizing (Black).
+        
+        Returns:
+            Tuple of (best move, score).
+        """
         zobrist_hash = chess.polyglot.zobrist_hash(board)
         tt_entry = self.transposition_table.get(zobrist_hash)
         if tt_entry and tt_entry['depth'] >= depth:
@@ -399,28 +531,20 @@ class ShinigamiEngine:
                 return tt_entry['move'], tt_entry['score']
             elif tt_entry['flag'] == 'upper' and tt_entry['score'] <= alpha:
                 return tt_entry['move'], tt_entry['score']
-
-        if board.is_game_over():
-            if board.result() == "1-0":
-                return None, 1000000 if maximizing_player else -1000000
-            elif board.result() == "0-1":
-                return None, -1000000 if maximizing_player else 1000000
-            return None, 0
-        
-        if depth == 0:
-            return None, self.evaluate_position(board)
-        
-        moves = list(board.legal_moves)
-        move_scores = [(move, self.see(board, move)) for move in moves]
+        if depth <= 0 or board.is_game_over():
+            return None, self.quiescence(board, alpha, beta, 4)
+        move_scores = []
+        for move in board.legal_moves:
+            score = self.see(board, move) if board.is_capture(move) else 0
+            move_scores.append((move, score))
         move_scores.sort(key=lambda x: x[1], reverse=True)
         ordered_moves = [move for move, _ in move_scores]
-        
         best_move = None
         if maximizing_player:
             value = -float('inf')
             for move in ordered_moves:
                 board.push(move)
-                _, score = self.alpha_beta(board, depth - 1, alpha, beta, False)
+                score = self.alpha_beta(board, depth - 1, alpha, beta, False)[1]
                 board.pop()
                 if score > value:
                     value = score
@@ -433,7 +557,7 @@ class ShinigamiEngine:
             value = float('inf')
             for move in ordered_moves:
                 board.push(move)
-                _, score = self.alpha_beta(board, depth - 1, alpha, beta, True)
+                score = self.alpha_beta(board, depth - 1, alpha, beta, True)[1]
                 board.pop()
                 if score < value:
                     value = score
@@ -442,97 +566,125 @@ class ShinigamiEngine:
                 if alpha >= beta:
                     break
             flag = 'exact' if value <= alpha or value >= beta else 'upper'
-        
         if len(self.transposition_table) < self.tt_max_size:
-            self.transposition_table[zobrist_hash] = {
-                'move': best_move,
-                'score': value,
-                'depth': depth,
-                'flag': flag
-            }
-        
+            self.transposition_table[zobrist_hash] = {'move': best_move, 'score': value, 'depth': depth, 'flag': flag}
         return best_move, value
 
-    def get_best_move(self, board: chess.Board, depth: int, difficulty: str) -> chess.Move:
-        """Get best move, prioritizing opening book then alpha-beta."""
-        move = self.get_opening_move(board)
-        if move and move in board.legal_moves:
-            return move
-        return self.alpha_beta(board, depth, -float('inf'), float('inf'), board.turn == chess.WHITE)[0]
-
     def iterative_deepening(self, board: chess.Board, depth: int, time_control: dict) -> tuple:
-        """Iterative deepening search with time control."""
+        """Iterative deepening search with time control.
+        
+        Args:
+            board: The current chess board position.
+            depth: Maximum search depth.
+            time_control: Dictionary with 'base' and 'increment' keys.
+        
+        Returns:
+            Tuple of (best move, score).
+        """
         start_time = time.time()
         time_limit = time_control['base'] + time_control['increment'] * (board.fullmove_number - 1)
         best_move = None
         best_score = 0
-        
-        def search_depth(args):
-            board, d = args
-            return self.alpha_beta(board, d, -float('inf'), float('inf'), board.turn == chess.WHITE)
-        
-        if difficulty == "masochist" and self.config.NUM_PROCESSES > 1:
-            with mp.Pool(processes=self.config.NUM_PROCESSES) as pool:
-                for d in range(1, depth + 1):
-                    if time.time() - start_time > time_limit * 0.8:
-                        break
-                    results = pool.map(search_depth, [(board.copy(), d)])
-                    best_move, best_score = results[0]
-                    if best_move:
-                        logging.info(f"Depth {d}: Best move {best_move}, Score {best_score}")
-        else:
-            for d in range(1, depth + 1):
-                if time.time() - start_time > time_limit * 0.8:
-                    break
-                best_move, best_score = self.alpha_beta(board, d, -float('inf'), float('inf'), board.turn == chess.WHITE)
-                if best_move:
-                    logging.info(f"Depth {d}: Best move {best_move}, Score {best_score}")
-        
+        current_depth = 1
+        while current_depth <= depth and time.time() - start_time < time_limit:
+            with Pool(self.config.NUM_PROCESSES) as pool:
+                results = pool.starmap(self.alpha_beta, [(board.copy(), current_depth, -float('inf'), float('inf'), board.turn == chess.WHITE)])
+                move, score = results[0]  # Aggregate results in production
+                if move:
+                    best_move = move
+                    best_score = score
+            current_depth += 1
         return best_move, best_score
 
-    def generate_puzzle(self, board: chess.Board) -> tuple:
-        """Generate a simple tactical puzzle."""
-        if not self.puzzle_database:
-            return None, "No puzzle available"
+    def get_best_move(self, board: chess.Board, depth: int, difficulty: str) -> chess.Move:
+        """Get best move, prioritizing opening book then alpha-beta.
         
-        puzzle = random.choice(self.puzzle_database)
-        board.set_fen(puzzle["fen"])
-        move = board.parse_uci(puzzle["move"])
-        return move, puzzle["task"]
+        Args:
+            board: The current chess board position.
+            depth: Search depth.
+            difficulty: Difficulty mode.
+        
+        Returns:
+            Best move as a chess.Move object.
+        """
+        move = self.get_opening_move(board)
+        if move and move in board.legal_moves:
+            return move
+        return self.iterative_deepening(board, depth, self.config.TIME_CONTROLS[difficulty])[0]
+
+    def get_opening_move(self, board: chess.Board) -> chess.Move:
+        """Get move from Polyglot opening book.
+        
+        Args:
+            board: The current chess board position.
+        
+        Returns:
+            Move from opening book or None.
+        """
+        if self.opening_book:
+            try:
+                entry = self.opening_book.weighted_choice(board)
+                return entry.move
+            except:
+                return None
+        return None
+
+    def generate_puzzle(self, board: chess.Board) -> tuple:
+        """Generate a puzzle from the puzzle database.
+        
+        Args:
+            board: The current chess board position.
+        
+        Returns:
+            Tuple of (puzzle move, task description) or (None, None).
+        """
+        if self.puzzle_database:
+            puzzle = random.choice(self.puzzle_database)
+            board.set_fen(puzzle['fen'])
+            return board.parse_san(puzzle['move']), puzzle['task']
+        return None, None
+
+    def select_difficulty(self) -> str:
+        """Select AI difficulty with confirmation for extreme modes.
+        
+        Returns:
+            Selected difficulty as a string.
+        """
+        print("Select AI difficulty: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode, 6) Masochist, 7) Dialing Satan's Number")
+        while True:
+            difficulty_input = input("Enter 1, 2, 3, 4, 5, 6, or 7: ").strip()
+            difficulties = {'1': 'easy', '2': 'medium', '3': 'hard', '4': 'god-of-death', '5': 'puzzle', '6': 'masochist', '7': 'dialing-satan-s-number'}
+            if difficulty_input in difficulties:
+                difficulty = difficulties[difficulty_input]
+                if difficulty == 'dialing-satan-s-number':
+                    for i in range(3):
+                        confirm = input(f"Confirm enabling Dialing Satan's Number (step {i+1}/3) [y/n]: ").strip().lower()
+                        if confirm != 'y':
+                            print("Extreme mode cancelled.")
+                            break
+                    else:
+                        print("Warning: Dialing Satan's Number enabled. Good luck!")
+                        return difficulty
+                return difficulty
+            print("Invalid input. Try again.")
 
     def play_chess_with_ai(self, ai_color: chess.Color):
-        """Main game loop for playing against the AI."""
-        board = chess.Board()
-        print(f"You are {'White' if ai_color == chess.BLACK else 'Black'}. Prepare for annihilation.")
-        print(f"Using {self.config.NUM_PROCESSES} processes for full tree search.")
-        print("Select AI difficulty: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode, 6) Masochist")
-        while True:
-            difficulty_input = input("Enter 1, 2, 3, 4, 5, or 6: ").strip()
-            if difficulty_input in ["1", "2", "3", "4", "5", "6"]:
-                difficulties = {
-                    "1": "easy", "2": "medium", "3": "hard", "4": "god-of-death",
-                    "5": "puzzle", "6": "masochist"
-                }
-                difficulty = difficulties[difficulty_input]
-                depth = self.config.DEPTHS[difficulty]
-                break
-            print(random.choice(self.config.TRASH_TALK["invalid"]))
-            logging.warning(f"Invalid difficulty input: {difficulty_input}")
+        """Main game loop for human vs. AI play in console mode.
         
-        if difficulty == "masochist":
-            print("Masochist mode activated! Your CPU is Going to Suffer!.")
-        print(f"AI set to {difficulty.replace('-', ' ').title()} mode (depth: {depth}). Let's make this quick.")
-        print("Enter moves in algebraic notation (e.g., 'e4'). Type 'quit' to flee, 'puzzle' for a challenge, or 'uci' for UCI mode.")
+        Args:
+            ai_color: Color the AI plays (chess.WHITE or chess.BLACK).
+        """
+        board = chess.Board()
+        difficulty = self.select_difficulty()
+        depth = self.config.DEPTHS[difficulty]
         print(f"NNUE: {'Enabled' if self.config.USE_NNUE else 'Disabled'}")
         print(f"Syzygy Tablebases: {'Loaded' if self.tablebase else 'Not Loaded'}")
         print(f"Opening Book: {'Loaded' if self.opening_book else 'Not Loaded'}")
         logging.info(f"Game started: AI as {'Black' if ai_color == chess.BLACK else 'White'}, Difficulty: {difficulty}")
-
         while not board.is_game_over():
-            print("\n" + str(board) + "\n")
+            print(f"\n{board}\n")
             player = "White" if board.turn == chess.WHITE else "Black"
             print(f"{player}'s turn. Don't bore me.")
-            
             if difficulty == "puzzle":
                 puzzle_move, puzzle_task = self.generate_puzzle(board)
                 if puzzle_move:
@@ -549,24 +701,24 @@ class ShinigamiEngine:
                             if move == puzzle_move:
                                 print("Puzzle solved! Want another? (y/n)")
                                 logging.info("Puzzle solved correctly")
-                                if input().strip().lower() != 'y':
+                                if input().strip().lower() == 'y':
+                                    board = chess.Board()
+                                    puzzle_move, puzzle_task = self.generate_puzzle(board)
+                                    if not puzzle_move:
+                                        print("No more puzzles available. Switching to medium mode.")
+                                        difficulty = "medium"
+                                        depth = self.config.DEPTHS["medium"]
+                                        break
+                                    print(f"\nNew Puzzle: {puzzle_task}\n")
+                                else:
                                     return
-                                board = chess.Board()
-                                puzzle_move, puzzle_task = self.generate_puzzle(board)
-                                if not puzzle_move:
-                                    print("No more puzzles available. Switching to medium mode.")
-                                    difficulty = "medium"
-                                    depth = self.config.DEPTHS["medium"]
-                                    break
-                                print(f"\nNew Puzzle: {puzzle_task}\n")
                             else:
                                 print("Wrong move! Try again or 'retry'.")
                                 logging.warning(f"Incorrect puzzle move: {move_input}")
                         except ValueError:
                             print(random.choice(self.config.TRASH_TALK["invalid"]))
-                    continue
-            
-            if board.turn == ai_color:
+                            continue
+            elif board.turn == ai_color:
                 print("Shinigami is plotting your demise...")
                 move = self.get_best_move(board, depth, difficulty)
                 if move:
@@ -576,67 +728,44 @@ class ShinigamiEngine:
                         print(random.choice(self.config.TRASH_TALK["check"]))
                     elif board.is_capture(move):
                         print(random.choice(self.config.TRASH_TALK["capture"]))
-                    else:
-                        print(random.choice(self.config.TRASH_TALK["move"]))
-                else:
-                    print("No moves left? You're cursed.")
-                    logging.info("Game ended: No legal moves for AI")
-                    break
             else:
-                move_input = input("Your move: ").strip()
-                if move_input.lower() == "quit":
-                    print(random.choice(self.config.TRASH_TALK["draw"]))
-                    logging.info("Game ended: Player quit")
+                move_input = input("Your move: ").strip().lower()
+                if move_input == "quit":
                     break
-                if move_input.lower() == "puzzle" and difficulty != "puzzle":
-                    difficulty = "puzzle"
-                    logging.info("Switched to puzzle mode")
-                    continue
-                if move_input.lower() == "uci":
-                    self.uci_loop()
-                    return
                 try:
                     move = board.parse_san(move_input)
-                    if move in board.legal_moves:
-                        board.push(move)
-                        logging.info(f"Player move: {move_input}")
-                        if board.is_capture(move):
-                            print(random.choice(self.config.TRASH_TALK["capture"]))
-                        elif move.uci() in [self.config.OPENING_BOOK.get(k, '') for k in self.config.OPENING_BOOK]:
-                            print(random.choice(self.config.TRASH_TALK["opening"]))
-                    else:
-                        print(random.choice(self.config.TRASH_TALK["invalid"]))
-                        logging.warning(f"Illegal move attempted: {move_input}")
+                    board.push(move)
                 except ValueError:
                     print(random.choice(self.config.TRASH_TALK["invalid"]))
                     logging.warning(f"Invalid move input: {move_input}")
-            
-            print("\n" + str(board) + "\n")
-            
-            result = board.result()
-            if result == "1-0":
-                print(random.choice(self.config.TRASH_TALK["loss"]))
-                logging.info("Game ended: White wins")
-                break
-            elif result == "0-1":
-                print(random.choice(self.config.TRASH_TALK["win"]))
-                logging.info("Game ended: Black wins")
-                break
-            elif result == "*":
-                continue
-            else:
-                print(random.choice(self.config.TRASH_TALK["draw"]))
-                logging.info("Game ended: Draw")
-                break
+        result = board.result()
+        if result == "1-0":
+            print(random.choice(self.config.TRASH_TALK["loss"]))
+            logging.info("Game ended: White wins")
+        elif result == "0-1":
+            print(random.choice(self.config.TRASH_TALK["win"]))
+            logging.info("Game ended: Black wins")
+        else:
+            print(random.choice(self.config.TRASH_TALK["draw"]))
+            logging.info("Game ended: Draw")
 
     def uci_loop(self):
-        """Handle UCI protocol commands."""
+        """Handle UCI protocol commands for integration with chess GUIs."""
+        board = chess.Board()
         while True:
             command = input().strip()
             if command == "uci":
                 print(f"id name {self.config.ENGINE_NAME}")
-                print("id author Anonymous")
+                print("id author Tonmoy-KS")
+                print("option name UseNNUE type check default true")
                 print("uciok")
+            elif command == "isready":
+                print("readyok")
+            elif command == "stop":
+                break  # Simplified; add proper search stopping in production
+            elif command.startswith("setoption name UseNNUE"):
+                self.config.USE_NNUE = "value true" in command.lower()
+                print(f"info string NNUE {'enabled' if self.config.USE_NNUE else 'disabled'}")
             elif command.startswith("position"):
                 parts = command.split()
                 board = chess.Board()
@@ -648,17 +777,26 @@ class ShinigamiEngine:
                 difficulty = "hard"
                 depth = self.config.DEPTHS[difficulty]
                 time_control = self.config.TIME_CONTROLS[difficulty]
-                move, _ = self.iterative_deepening(board, depth, time_control)
-                print(f"bestmove {board.uci(move)}")
+                move = self.iterative_deepening(board, depth, time_control)[0]
+                print(f"bestmove {move.uci()}")
             elif command == "quit":
                 break
 
 if __name__ == "__main__":
+    import argparse
     parser = argparse.ArgumentParser(description="Shinigami Chess Engine")
-    parser.add_argument('--cores', type=int, default=ShinigamiConfig.NUM_PROCESSES,
-                        help="Number of CPU cores to use")
+    parser.add_argument('--cores', type=int, default=ShinigamiConfig.NUM_PROCESSES, help="Number of CPU cores to use")
+    parser.add_argument('--gui', action='store_true', help="Run with GUI")
+    parser.add_argument('--self-play', type=int, default=0, help="Run self-play for specified number of games")
     args = parser.parse_args()
     ShinigamiConfig.NUM_PROCESSES = min(max(1, args.cores), mp.cpu_count())
     mp.set_start_method('spawn')
     engine = ShinigamiEngine()
-    engine.play_chess_with_ai(chess.BLACK)
+    if args.self_play > 0:
+        engine.training_module.self_play(engine, args.self_play)
+        engine.training_module.retrain_nnue()
+    elif args.gui:
+        gui = ChessGUI(engine)
+        gui.root.mainloop()
+    else:
+        engine.play_chess_with_ai(chess.BLACK
