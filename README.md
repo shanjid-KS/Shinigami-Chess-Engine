@@ -1,9 +1,10 @@
+# Shinigami Chess Engine
 ---
 
-markdown
-# Shinigami Chess Engine
+```markdown
+### Shinigami Chess Engine
 
-**Version:** 1.15.2 Gen 2 Edition  
+**Version:** 1.15.2 — Gen 2 Edition  
 **Author:** [Tonmoy-KS](https://github.com/Tonmoy-KS)  
 **License:** MIT License  
 _Credit to @Tonmoy-KS. Do not claim this project as your own._
@@ -160,3 +161,7 @@ For bugs, suggestions, or contributions, open an issue or pull request on [GitHu
 
 **Enjoy your game... and beware the reaper!**
 ```
+
+**Version:** 1.15.2 — Gen 2 Edition  
+**Author:** [Tonmoy-KS](https://github.com/Tonmoy-KS)  
+**License:** MIT License  
