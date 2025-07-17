@@ -1,130 +1,162 @@
 ---
 
-## README.md
-
 ```markdown
-#### Shinigami-Chess-Engine
+# Shinigami Chess Engine
 
-**Shinigami Chess Engine** is a professional chess engine with full tree parallelization, developed by Tonmoy-KS.
-
-> **Note:**  
-> This engine is **inspired by Stockfish**, but all code is original and self-written by @Tonmoy-KS.
-
----
-
-#### Status
-
-- ⚠️ The engine may still have some syntax and other errors.  
-- I am actively fixing them and will provide a fully fixed version soon.
-- You can find the current code in the `Main_Code_1` section.
+**Version:** 1.15.2 Gen 2 Edition  
+**Author:** [Tonmoy-KS](https://github.com/Tonmoy-KS)  
+**License:** MIT License  
+_Credit to @Tonmoy-KS. Do not claim this project as your own._
 
 ---
 
-## Dependencies
+## Overview
 
-To run Shinigami Chess Engine, install the following dependencies.
+Shinigami is a professional, feature-rich chess engine written in Python.  
+It combines advanced search techniques, neural network evaluation (NNUE), self-play training, and a unique personality - complete with witty trash talk and extreme difficulty modes.
 
-| Dependency         | Version    | Purpose                        | Installation Command                                      | Platforms         |
-|--------------------|------------|--------------------------------|-----------------------------------------------------------|-------------------|
-| `python-chess`     | >=0.31.4   | Chess logic & UCI protocol     | `pip install python-chess`                                | Desktop, Android  |
-| `numpy`            | >=1.21.0   | NNUE computations              | `pip install numpy`                                       | Desktop, Android  |
-| `scipy`            | >=1.7.0    | Sparse matrix for NNUE         | `pip install scipy` <br> or <br> `pip install --index-url https://www.piwheels.org/simple scipy` (Android) | Desktop, Android  |
-| `argparse`         | Std Library| CLI arguments                  | Included with Python                                      | Desktop, Android  |
-| `logging`          | Std Library| Logging                        | Included with Python                                      | Desktop, Android  |
-| `multiprocessing`  | Std Library| Parallel search                | Included with Python                                      | Desktop, Android (limited) |
+The engine supports console play, a basic GUI (Tkinter), UCI protocol for GUI integration, and self-play for learning and training.
 
-### Optional Dependencies
+---
 
-| Dependency           | Purpose                    | Setup                                                                                   | Platforms         |
-|----------------------|----------------------------|-----------------------------------------------------------------------------------------|-------------------|
-| NNUE Weights         | Advanced evaluation        | Download or train, place in `./` (Desktop) or `/storage/emulated/0/shinigami/` (Android)| Desktop, Android  |
-| Polyglot Opening Book| Opening moves database     | Download from [Lichess](https://database.lichess.org/#openings)                         | Desktop, Android  |
-| Syzygy Tablebases    | Endgame accuracy           | Download from [Syzygy](http://tablebase.sesse.net/) and place in `tablebases/`          | Desktop, Android  |
+## Features
 
-### Training (Optional)
-
-| Dependency | Version | Purpose         | Installation         | Platforms      |
-|------------|---------|----------------|----------------------|----------------|
-| `torch`    | >=1.9.0 | NNUE training  | `pip install torch`  | Desktop only   |
-| Chess Dataset | N/A  | Training data  | Download from [Lichess Elite Database](https://database.lichess.org/) | Desktop |
+- **Full Tree Parallelization**: Multi-core alpha-beta search with iterative deepening.
+- **Advanced NNUE Evaluation**: PyTorch-based neural network for board evaluation (can be trained and retrained via self-play).
+- **Quiescence Search**: Handles tactical complications and reduces the horizon effect.
+- **Transposition Table**: Efficient move re-use and pruning.
+- **SEE (Static Exchange Evaluation)**: Smarter move ordering for captures.
+- **Opening Book**: Uses Polyglot book and learns from self-play games.
+- **Syzygy Tablebases**: Endgame perfection with up to 7 pieces.
+- **Multiple Difficulty Modes**: From Easy to "Dialing Satan's Number" (with extra confirmation rituals).
+- **Self-Play & NNUE Training**: Learns from its own games, saves positions to SQLite, updates opening book and NNUE weights.
+- **Puzzle Mode**: Try tactical puzzles.
+- **Trash Talk System**: Enjoy playful commentary and banter during play.
+- **Basic GUI**: Tkinter-based board for casual play.
+- **UCI Protocol**: Integrate with chess GUIs and tools.
+- **Logging**: Detailed logging to `shinigami_engine.log`.
 
 ---
 
 ## Installation
 
-1. **Install Python**  
-   - Desktop: [Download Python 3.8+](https://www.python.org/downloads/)
-   - Android: Install Pydroid 3 from Google Play Store
+**Requirements:**
+- Python 3.8+
+- [python-chess](https://python-chess.readthedocs.io/)
+- numpy
+- scipy
+- torch (PyTorch)
+- tkinter (for GUI mode)
+- Pillow (for advanced GUI features)
+- sqlite3 (included with Python)
 
-2. **Install core dependencies:**
-   ```sh
-   pip install python-chess numpy scipy
-   ```
+```bash
+pip install python-chess numpy scipy torch pillow
+```
+
+Optional: For Syzygy tablebases and Polyglot opening book, download and place them in the appropriate directories.
 
 ---
 
-## Android Notes
+## Usage
 
-- **File Storage**:
-  - Place all engine resources (`nnue_weights.bin`, `book.bin`, tablebases, `shinigami_engine.log`) in `/storage/emulated/0/shinigami/`.
-  - Create the directory if it doesn’t exist:
-    ```sh
-    mkdir /storage/emulated/0/shinigami
-    ```
-  - Ensure Pydroid 3 has storage permissions (grant via Android settings).
-  - Alternatively, files can be placed in Pydroid 3’s internal storage (`/data/data/ru.iiec.pydroid3/files/`), but `/storage/emulated/0/shinigami/` is recommended for accessibility.
+### Console Mode
 
-- **Performance**:
-  - Use "easy" or "medium" modes (depth ≤ 8) to avoid slowdowns on mobile devices.
-  - Multiprocessing is limited to 1 core by default to prevent crashes. Use `--cores 1` when running:
-    ```sh
-    python shinigami.py --cores 1
-    ```
+```bash
+python shinigami.py
+```
 
-- **Dependencies**:
-  - Install via Pydroid 3’s terminal:
-    ```sh
-    pip install python-chess numpy scipy
-    ```
-  - If `scipy` fails, use:
-    ```sh
-    pip install --index-url https://www.piwheels.org/simple scipy
-    ```
+You’ll be prompted for difficulty and can play against the engine in the terminal.
 
-- **Running the Engine**:
-  - Console mode: Run `python shinigami.py` in Pydroid 3 and select a difficulty.
-  - UCI mode: Use a chess app like DroidFish, running:
-    ```sh
-    python shinigami.py --uci
-    ```
+### GUI Mode
 
-- **Troubleshooting**:
-  - **Missing Files**: Ensure `nnue_weights.bin` and `book.bin` are in `/storage/emulated/0/shinigami/`. Download from [GitHub Releases](https://github.com/Tonmoy-KS/Shinigami-Chess-Engine/releases).
-  - **Permission Errors**: Grant storage permissions in Android settings.
-  - **Crashes**: Reduce NNUE size (edit `AdvancedNNUEEvaluator.hidden_size1` to 128) or disable tablebases.
-  - Check `shinigami_engine.log` in `/storage/emulated/0/shinigami/` or console output for errors.
+```bash
+python shinigami.py --gui
+```
+
+Launches a basic Tkinter chessboard interface.
+
+### UCI Mode (for GUI integration)
+
+```bash
+python shinigami.py
+```
+
+Then type `uci` to start the protocol.
+
+### Self-Play and NNUE Training
+
+```bash
+python shinigami.py --self-play 100
+```
+
+Runs 100 self-play games, updates the opening book and retrains NNUE.
+
+### Core Control
+
+```bash
+python shinigami.py --cores 4
+```
+
+Sets the engine to use up to 4 CPU cores.
+
+---
+
+## Difficulty Modes
+
+- **Easy**: Shallow search, some random moves.
+- **Medium**: Standard search.
+- **Hard**: Deeper search, stronger play.
+- **God-Of-Death**: Very deep search.
+- **Puzzle Mode**: Solve tactical challenges.
+- **Masochist**: Extreme depth; may stress your CPU.
+- **Dialing Satan's Number**: Absurdly deep search (requires 3-step confirmation ritual). Use with caution!
+
+---
+
+## NNUE Evaluation
+
+- Neural evaluation is **optional**. Toggle via `setoption name UseNNUE value true` in UCI mode or by editing the config.
+- NNUE weights are stored in `nnue_weights.bin` (generated by training module).
+- If NNUE is off, engine falls back to classical evaluation.
+
+---
+
+## Opening Book & Tablebases
+
+- **Polyglot Opening Book**: Place `book.bin` in the engine directory.
+- **Syzygy Tablebases**: Set `SYZYGY_PATH` in `ShinigamiConfig` to your tablebase directory.
+
+---
+
+## Trash Talk System
+
+Enjoy playful banter and witty remarks as you play—this is part of Shinigami’s unique personality!
 
 ---
 
 ## License
 
-This project is licensed under the MIT License.  
-If you use or modify this engine, **credit Tonmoy-KS as the original author**.  
-Do not claim this project as your own.
+MIT License.  
+You **must** credit @Tonmoy-KS if you use or modify this engine.  
+Do **not** claim this project as your own.
 
 ---
 
-### Acknowledgement
+## Acknowledgements
 
-- Inspired by [Stockfish](https://stockfishchess.org/), but all code is original.
-
----
-
-### Contact
-
-For issues or contributions, please open an issue or pull request on GitHub.
+- [python-chess](https://python-chess.readthedocs.io/)
+- PyTorch
+- Polyglot Book & Syzygy Tablebases
+- The chess engine development community
 
 ---
 
-*Last updated: June 27 2025*
+## Contact
+
+For bugs, suggestions, or contributions, open an issue or pull request on [GitHub](https://github.com/Tonmoy-KS).
+
+---
+
+**Enjoy your game... and beware the reaper!**
 ```
