@@ -57,7 +57,7 @@ class ShinigamiConfig:
         'god-of-death': 24,
         'puzzle': 4,
         'masochist': 40,
-        'dialing-satan-s-number': 85000000000000000  # Yeah that's Eighty Five Quadrillion because it's a Joke difficulty
+        'dialing-satan-s-number': 85,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000000000000000000000000000000000000000000000000000000000  # Yeah that's Eighty Five Trivigintrillion because it's a Joke difficulty
     }
     NNUE_FILE = 'nnue_weights.bin'
     SYZYGY_PATH = 'C:\\Tablebases'
