@@ -61,7 +61,7 @@ class ShinigamiConfig:
     }
     NNUE_FILE = 'nnue_weights.bin'
     SYZYGY_PATH = 'C:\\Tablebases'
-    USE_NNUE = True
+    USE_NNUE = False # Current Stopped because of Reasons you can turn it on it neede
     NUM_PROCESSES = max(1, mp.cpu_count() // 2)
     PIECE_SQUARE_TABLES = {
         chess.PAWN: [
@@ -160,11 +160,13 @@ class ShinigamiConfig:
             "That's not a move, it's a cry for help!",
             "Illegal move! Do you even chess, bro?",
             "Invalid move! Did you borrow that from a 1000-rated game?"
+            ""
         ],
         "opening": [
             "You brought the London System? Weak.",
             "King's Pawn Opening? How original.",
             "Sicilian? Bold, but I'm still gonna shred you."
+            "You still follow Theory? i am the Einstein of Chess"
         ],
         "time_pressure": [
             "Tick-tock, your clock's screaming for mercy.",
