@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami V.1.15.2 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami V.1.15.4 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (credit @Tonmoy-KS, do not claim as own)
 """
@@ -32,7 +32,7 @@ logging.basicConfig(
 
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.15.2 - Gen 2 Edition"
+    ENGINE_NAME = "Shinigami V.1.15.4 - Gen 2 Edition"
     PIECE_VALUES = {
         chess.PAWN: 150,
         chess.KNIGHT: 520,
@@ -48,7 +48,7 @@ class ShinigamiConfig:
         'god-of-death': {'base': 650, 'increment': 50},
         'puzzle': {'base': 30, 'increment': 0},
         'masochist': {'base': 70, 'increment': 15},
-        'dialing-satan-s-number': {'base': 1,000,000,000, 'increment': 30} # yeah, that's Eons 
+        'dialing-satan-s-number': {'base': 2,177,430,688,000,000,000, 'increment': 30} # yeah, that's 69 Eons 
     }
     DEPTHS = {
         'easy': 1,
