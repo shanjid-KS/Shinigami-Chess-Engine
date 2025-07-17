@@ -1,6 +1,6 @@
 ---
 
-```markdown
+markdown
 # Shinigami Chess Engine
 
 **Version:** 1.15.2 Gen 2 Edition  
