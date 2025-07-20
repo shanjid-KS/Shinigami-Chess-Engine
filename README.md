@@ -1,167 +1,141 @@
+---
+
 # Shinigami Chess Engine
----
 
-```markdown
-### Shinigami Chess Engine
+![MIT License](https://img.shields.io/badge/license-MIT-green)
+![Python](https://img.shields.io/badge/language-Python-blue)
+![Stars](https://img.shields.io/github/stars/Tonmoy-KS/Shinigami-Chess-Engine?style=social)
 
-**Version:** 1.15.2 — Gen 2 Edition  
-**Author:** [Tonmoy-KS](https://github.com/Tonmoy-KS)  
-**License:** MIT License  
-_Credit to @Tonmoy-KS. Do not claim this project as your own._
+**Shinigami V.1.15.4 – Gen 2 Edition**  
+A professional chess engine with full tree parallelization, advanced evaluation, and (optionally) NNUE neural nets.  
+Inspired by Stockfish, but 100% original code by [Tonmoy-KS](https://github.com/Tonmoy-KS).  
 
----
-
-## Overview
-
-Shinigami is a professional, feature-rich chess engine written in Python.  
-It combines advanced search techniques, neural network evaluation (NNUE), self-play training, and a unique personality - complete with witty trash talk and extreme difficulty modes.
-
-The engine supports console play, a basic GUI (Tkinter), UCI protocol for GUI integration, and self-play for learning and training.
+> “Your moves are so predictable. I’m playing blindfolded.”  
+> — *Shinigami Engine Trash Talk*
 
 ---
 
 ## Features
 
-- **Full Tree Parallelization**: Multi-core alpha-beta search with iterative deepening.
-- **Advanced NNUE Evaluation**: PyTorch-based neural network for board evaluation (can be trained and retrained via self-play).
-- **Quiescence Search**: Handles tactical complications and reduces the horizon effect.
-- **Transposition Table**: Efficient move re-use and pruning.
-- **SEE (Static Exchange Evaluation)**: Smarter move ordering for captures.
-- **Opening Book**: Uses Polyglot book and learns from self-play games.
-- **Syzygy Tablebases**: Endgame perfection with up to 7 pieces.
-- **Multiple Difficulty Modes**: From Easy to "Dialing Satan's Number" (with extra confirmation rituals).
-- **Self-Play & NNUE Training**: Learns from its own games, saves positions to SQLite, updates opening book and NNUE weights.
-- **Puzzle Mode**: Try tactical puzzles.
-- **Trash Talk System**: Enjoy playful commentary and banter during play.
-- **Basic GUI**: Tkinter-based board for casual play.
-- **UCI Protocol**: Integrate with chess GUIs and tools.
-- **Logging**: Detailed logging to `shinigami_engine.log`.
+- **Full Tree Parallel Search** – Uses multiprocessing for fast, deep analysis.
+- **Advanced Evaluation** – Piece-square tables, material, and optional Syzygy endgame tablebases.
+- **NNUE (Neural Network Unified Evaluation)** – Pluggable HalfKAv2 neural net for positional understanding.
+- **Opening Book** – Polyglot book support and self-play book trainer.
+- **Self-Play & Training Module** – Generates games and retrains the NNUE.
+- **GUI & Console Modes** – Tkinter board or retro text mode.
+- **Difficulty Levels** – From ‘easy’ to ‘Dialing Satan’s Number’ (for masochists).
+- **Trash Talk** – The engine will taunt you as you play.
+- **UCI Protocol Support** – Plug into chess GUIs like Arena, CuteChess, etc.
+- **MIT License** – Free to use, modify, and hack on (just credit the author).
 
 ---
 
 ## Installation
 
-**Requirements:**
-- Python 3.8+
-- [python-chess](https://python-chess.readthedocs.io/)
-- numpy
-- scipy
-- torch (PyTorch)
-- tkinter (for GUI mode)
-- Pillow (for advanced GUI features)
-- sqlite3 (included with Python)
+1. **Clone the Repo:**
+    ```bash
+    git clone https://github.com/Tonmoy-KS/Shinigami-Chess-Engine.git
+    cd Shinigami-Chess-Engine
+    ```
 
-```bash
-pip install python-chess numpy scipy torch pillow
-```
+2. **Install Dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+    *(Main dependencies: python-chess, numpy, torch, scipy, Pillow)*
 
-Optional: For Syzygy tablebases and Polyglot opening book, download and place them in the appropriate directories.
+3. **(Optional) NNUE & Tablebases:**
+    - Place your `nnue_weights.bin` (HalfKAv2) in the project root.
+    - Download Syzygy Tablebases and set the path in `ShinigamiConfig.SYZYGY_PATH`.
+    - Opening book: place `book.bin` in the root.
 
 ---
 
 ## Usage
 
-### Console Mode
-
+**Basic Play (Console):**
 ```bash
-python shinigami.py
+python Shinigami_Engine
+```
+- Follow prompts to select difficulty and play as White or Black.
+
+**GUI Mode:**
+```bash
+python Shinigami_Engine --gui
 ```
 
-You’ll be prompted for difficulty and can play against the engine in the terminal.
-
-### GUI Mode
-
+**Enable Self-Play / NNUE Training:**
 ```bash
-python shinigami.py --gui
+python Shinigami_Engine --self-play 100
 ```
 
-Launches a basic Tkinter chessboard interface.
-
-### UCI Mode (for GUI integration)
-
+**Adjust CPU Cores:**
 ```bash
-python shinigami.py
+python Shinigami_Engine --cores 4
 ```
 
-Then type `uci` to start the protocol.
-
-### Self-Play and NNUE Training
-
-```bash
-python shinigami.py --self-play 100
-```
-
-Runs 100 self-play games, updates the opening book and retrains NNUE.
-
-### Core Control
-
-```bash
-python shinigami.py --cores 4
-```
-
-Sets the engine to use up to 4 CPU cores.
+**UCI Protocol (for chess GUIs):**
+- Run `python Shinigami_Engine` and use UCI commands as per your GUI.
 
 ---
 
 ## Difficulty Modes
 
-- **Easy**: Shallow search, some random moves.
-- **Medium**: Standard search.
-- **Hard**: Deeper search, stronger play.
-- **God-Of-Death**: Very deep search.
-- **Puzzle Mode**: Solve tactical challenges.
-- **Masochist**: Extreme depth; may stress your CPU.
-- **Dialing Satan's Number**: Absurdly deep search (requires 3-step confirmation ritual). Use with caution!
+- **easy:** Beginner, low search depth
+- **medium:** Club level
+- **hard:** Expert level
+- **god-of-death:** Grandmaster+
+- **puzzle:** Solve preset tactical puzzles
+- **masochist:** Insane depth, for pain lovers
+- **dialing-satan-s-number:** Joke mode. You were warned.
 
 ---
 
-## NNUE Evaluation
+## Trash Talk Examples
 
-- Neural evaluation is **optional**. Toggle via `setoption name UseNNUE value true` in UCI mode or by editing the config.
-- NNUE weights are stored in `nnue_weights.bin` (generated by training module).
-- If NNUE is off, engine falls back to classical evaluation.
-
----
-
-## Opening Book & Tablebases
-
-- **Polyglot Opening Book**: Place `book.bin` in the engine directory.
-- **Syzygy Tablebases**: Set `SYZYGY_PATH` in `ShinigamiConfig` to your tablebase directory.
+- “Check! I’m carving your board like a Halloween pumpkin.”
+- “Yoink! That piece is mine now.”
+- “Invalid move! Did you borrow that from a 1000-rated game?”
 
 ---
 
-## Trash Talk System
+## Architecture
 
-Enjoy playful banter and witty remarks as you play—this is part of Shinigami’s unique personality!
+- **Python 3** with heavy use of `python-chess`, multiprocessing, and PyTorch.
+- Modular classes: Config, NNUE, Evaluator, Training, GUI, Engine.
+- Transposition tables, piece-square tables, quiescence, alpha-beta, iterative deepening.
+- UCI and GUI frontends.
 
 ---
 
 ## License
 
 MIT License.  
-You **must** credit @Tonmoy-KS if you use or modify this engine.  
-Do **not** claim this project as your own.
+**Credit [Tonmoy-KS](https://github.com/Tonmoy-KS).**  
+Do not claim as your own; fork, mod, and contribute instead!
 
 ---
 
-## Acknowledgements
+## Credits & Inspiration
 
-- [python-chess](https://python-chess.readthedocs.io/)
-- PyTorch
-- Polyglot Book & Syzygy Tablebases
-- The chess engine development community
+- Inspired by Stockfish (but code is 100% self-written).
+- Built by [Tonmoy-KS](https://github.com/Tonmoy-KS).
+
+---
+
+## Contributing
+
+PRs/issues/suggestions are welcome!  
+For big changes: open an issue first to discuss what you want to change.
 
 ---
 
 ## Contact
 
-For bugs, suggestions, or contributions, open an issue or pull request on [GitHub](https://github.com/Tonmoy-KS).
+- GitHub: [Tonmoy-KS](https://github.com/Tonmoy-KS)
 
 ---
 
-**Enjoy your game... and beware the reaper!**
-```
+*Happy reaping on the 64 squares!*
 
-**Version:** 1.15.2 — Gen 2 Edition  
-**Author:** [Tonmoy-KS](https://github.com/Tonmoy-KS)  
-**License:** MIT License  
+---
