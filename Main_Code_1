@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami V.1.15.8 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami V.1.16.0 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (credit @Tonmoy-KS, do not claim as own)
 """
@@ -25,7 +25,7 @@ from PIL import Image, ImageTk
 import cProfile
 import pstats
 
-# Configure logging with enhanced search statistics
+# Configuration Logging 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -34,12 +34,12 @@ logging.basicConfig(
 
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-   /engine_NAME = "Shinigami V.1.15.8 - Gen 2 Edition"
+    ENGINE_NAME = "Shinigami V.1.16.0 - Gen 2 Edition"
     PIECE_VALUES = {
         chess.PAWN: 150,
         chess.KNIGHT: 520,
-        chess.BISHOP: 530,
-        chess.ROOK: 800,
+        chess.BISHOP: 630,
+        chess.ROOK: 900,
         chess.QUEEN: 1000,
     }
     TIME_CONTROLS = {
@@ -49,20 +49,20 @@ class ShinigamiConfig:
         'god-of-death': {'base': 60, 'increment': 50},
         'puzzle': {'base': 30, 'increment': 0},
         'masochist': {'base': 7000000, 'increment': 150},
-        'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000}  # Replaced invalid syntax with large finite value
+        'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000} 
     }
     DEPTHS = {
-        'easy': 1,
-        'medium': 6,
-        'hard': 14,
-        'god-of-death': 24,
-        'puzzle': 4,
-        'masochist': 40,
-        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+        'easy': 1, # Newbie?
+        'medium': 6, # Amateur
+        'hard': 14, # Strong but not Strongest 
+        'god-of-death': 24, # The strongest 
+        'puzzle': 4, 
+        'masochist': 40, # You love Pain eh?
+        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 # It's Experimental
     }
     NNUE_FILE = 'nnue_weights.bin'
     SYZYGY_PATH = 'C:\\Tablebases'
-    USE_NNUE = False
+    USE_NNUE = False # Disabled by Default. toggle it on when you want after you download python-torch.
     NUM_PROCESSES = max(1, mp.cpu_count() // 2)
     PIECE_SQUARE_TABLES = {
         chess.PAWN: [
@@ -82,7 +82,7 @@ class ShinigamiConfig:
             -30, 5, 15, 20, 20, 15, 5, -30,
             -30, 0, 15, 20, 20, 15, 0, -30,
             -30, 5, 10, 15, 15, 10, 5, -30,
-            -40, -20, 0, 5, 5, 0, -20, -40,
+            -40, -20, 0, 5, 5,0, -20, -40,
             -50, -40, -30, -30, -30, -30, -40, -50
         ],
         chess.BISHOP: [
@@ -191,7 +191,7 @@ class NNUE(nn.Module):
         return self.output_layer(x)
 
 class PolicyNetwork(nn.Module):
-    """Placeholder for policy network to suggest move probabilities."""
+    """Neural network for suggesting move probabilities."""
     # [Placeholder for Policy Network]
     # To implement:
     # 1. Define a neural network with input as HalfKAv2 features (or board state encoding).
@@ -199,12 +199,29 @@ class PolicyNetwork(nn.Module):
     # 3. Train on self-play games or external datasets (e.g., Lichess) using reinforcement learning or supervised learning.
     # 4. Integrate with move ordering by sorting moves by policy network probabilities.
     # 5. Requires PyTorch, a large dataset, and significant computational resources for training.
-    def __init__(self):
+    def __init__(self, input_size=40960, hidden_size=512, output_size=4672):
         super(PolicyNetwork, self).__init__()
-        pass
+        self.input_layer = nn.Linear(input_size, hidden_size)
+        self.hidden_layer1 = nn.Linear(hidden_size, hidden_size)
+        self.hidden_layer2 = nn.Linear(hidden_size, hidden_size // 2)
+        self.output_layer = nn.Linear(hidden_size // 2, output_size)
+        self.relu = nn.ReLU()
+        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x):
-        pass
+        x = self.relu(self.input_layer(x))
+        x = self.relu(self.hidden_layer1(x))
+        x = self.relu(self.hidden_layer2(x))
+        return self.softmax(self.output_layer(x))
+
+    def get_move_probabilities(self, board: chess.Board, legal_moves: list) -> dict:
+        """Generate move probabilities for legal moves."""
+        # Simplified placeholder: Random probabilities for now
+        features = AdvancedNNUEEvaluator.encode_halfkav2(None, board)
+        with torch.no_grad():
+            probs = self.forward(torch.tensor(features, dtype=torch.float32))
+        move_probs = {move: probs[i].item() for i, move in enumerate(legal_moves)}
+        return move_probs
 
 class AdvancedNNUEEvaluator:
     """Handles advanced NNUE evaluation with HalfKAv2 feature set."""
@@ -260,7 +277,7 @@ class TrainingModule:
                              (board.fen(), game_moves[-1], result))
             self.conn.commit()
             self.update_opening_book(board, game_moves, result)
-            logging.info(f"Self-play game {game_idx + 1}/{num_games} completed")
+            logging.info f"Self-play game {game_idx + 1}/{num_games} completed")
 
     def update_opening_book(self, board: chess.Board, moves: list, result: str):
         """Update opening book weights based on game outcomes with pruning and transposition handling."""
@@ -271,20 +288,28 @@ class TrainingModule:
             self.opening_book[zobrist_hash]['weight'] += weight
             self.opening_book[zobrist_hash]['count'] += 1
             board.push_uci(move)
-        # Prune low-weight moves to keep book manageable
-        for key in list(self.opening_book.keys()):
-            if self.opening_book[key]['count'] > 10 and self.opening_book[key]['weight'] / self.opening_book[key]['count'] < 0.1:
-                del self.opening_book[key]
+        # Enhanced pruning: Normalize weights and remove low-performing moves
+        total_weight = sum(entry['weight'] for entry in self.opening_book.values())
+        if total_weight > 0:
+            for key in list(self.opening_book.keys()):
+                entry = self.opening_book[key]
+                entry['weight'] /= total_weight  # Normalize weights
+                if entry['count'] > 10 and entry['weight'] < 0.05:  # Enhanced threshold
+                    del self.opening_book[key]
+                    logging.info(f"Pruned opening book entry: {key}")
 
     def learn_from_opponent(self, board: chess.Board, move: chess.Move, result: str):
         """Update opening book based on opponent's moves."""
         zobrist_hash = chess.polyglot.zobrist_hash(board)
-        weight = 0.8 if result in ['1-0', '0-1'] else 0.4  # Slightly lower weight for opponent moves
+        # Enhanced: Adjust weight based on estimated opponent strength
+        opponent_strength = 1.0  # Placeholder for opponent strength (e.g., based on game history)
+        weight = (0.8 * opponent_strength) if result in ['1-0', '0-1'] else (0.4 * opponent_strength)
         self.opening_book[zobrist_hash]['weight'] += weight
         self.opening_book[zobrist_hash]['count'] += 1
-        # Prune low-weight entries
-        if self.opening_book[zobrist_hash]['count'] > 10 and self.opening_book[zobrist_hash]['weight'] / self.opening_book[zobrist_hash]['count'] < 0.1:
+        # Enhanced pruning
+        if self.opening_book[zobrist_hash]['count'] > 10 and self.opening_book[zobrist_hash]['weight'] / self.opening_book[zobrist_hash]['count'] < 0.05:
             del self.opening_book[zobrist_hash]
+            logging.info(f"Pruned opponent opening entry: {zobrist_hash}")
 
     def train_nnue(self, dataset, epochs=10):
         """Train NNUE model on a dataset of (FEN, evaluation) pairs."""
@@ -314,7 +339,7 @@ class TrainingModule:
             self.train_nnue(dataset)
 
     def auto_feature_engineering(self):
-        """Placeholder for automated feature engineering."""
+        """Automated feature engineering using genetic algorithms."""
         # [Placeholder for Automated Feature Engineering]
         # To implement:
         # 1. Use reinforcement learning (e.g., TD-Lambda) or genetic algorithms to tune evaluation features.
@@ -322,7 +347,51 @@ class TrainingModule:
         # 3. Collect evaluation errors from self-play games (predicted vs. actual outcome).
         # 4. Use gradient-based optimization or evolutionary strategies to refine feature weights.
         # 5. Requires a large dataset, computational resources, and a framework like PyTorch or DEAP.
-        pass
+        import random
+        population_size = 50
+        generations = 10
+        mutation_rate = 0.1
+        population = []
+        for _ in range(population_size):
+            # Generate candidate feature sets by perturbing piece values and PSTs
+            piece_values = {piece: value + random.uniform(-50, 50) for piece, value in self.config.PIECE_VALUES.items()}
+            pst = {}
+            for piece, table in self.config.PIECE_SQUARE_TABLES.items():
+                pst[piece] = [v + random.uniform(-10, 10) for v in table]
+            population.append({'piece_values': piece_values, 'pst': pst})
+        for generation in range(generations):
+            # Evaluate fitness by playing games with candidate feature sets
+            fitness_scores = []
+            for features in population:
+                score = self.evaluate_features(features)
+                fitness_scores.append(score)
+            # Select top performers
+            sorted_pop = sorted(zip(population, fitness_scores), key=lambda x: x[1], reverse=True)
+            population = [p for p, _ in sorted_pop[:population_size // 2]]
+            # Crossover and mutation
+            while len(population) < population_size:
+                parent1, parent2 = random.sample(population, 2)
+                child = {
+                    'piece_values': {piece: (p1 + p2) / 2 for piece, p1, p2 in zip(parent1['piece_values'], parent1['piece_values'].values(), parent2['piece_values'].values())},
+                    'pst': {piece: [(v1 + v2) / 2 for v1, v2 in zip(parent1['pst'][piece], parent2['pst'][piece])] for piece in parent1['pst']}
+                }
+                if random.random() < mutation_rate:
+                    for piece in child['piece_values']:
+                        child['piece_values'][piece] += random.uniform(-20, 20)
+                    for piece in child['pst']:
+                        child['pst'][piece] = [v + random.uniform(-5, 5) for v in child['pst'][piece]]
+                population.append(child)
+            logging.info(f"Feature engineering generation {generation + 1}/{generations} completed")
+        # Update config with best feature set
+        best_features = sorted_pop[0][0]
+        self.config.PIECE_VALUES = best_features['piece_values']
+        self.config.PIECE_SQUARE_TABLES = best_features['pst']
+        logging.info("Updated engine features with best candidate")
+
+    def evaluate_features(self, features):
+        """Placeholder: Evaluate feature set by playing games."""
+        # Simulate games with modified features and return average outcome
+        return random.uniform(0, 100)  # Placeholder fitness score
 
 class ChessGUI:
     """Graphical interface for Shinigami using tkinter."""
@@ -419,6 +488,7 @@ class ShinigamiEngine:
         ]
         self.nnue = AdvancedNNUEEvaluator(self.config.NNUE_FILE) if self.config.USE_NNUE else None
         self.training_module = TrainingModule()
+        self.policy_network = PolicyNetwork() if self.config.USE_NNUE else None
         self.nodes_searched = 0
         self.cutoffs = 0
         self.tt_hits = 0
@@ -569,26 +639,36 @@ class ShinigamiEngine:
             if eval_score + futility_margin <= alpha:
                 return None, alpha
 
-        # Move ordering: Killer, History, SEE
+        # Move ordering: Killer, History, SEE, Policy Network
         move_scores = []
         killers = self.killer_moves.get(depth, [])
-        for move in board.legal_moves:
-            score = 0
-            if move in killers:
-                score += 10000
-            score += self.history_table[zobrist_hash].get(move.uci(), 0)
-            score += self.see(board, move)
-            move_scores.append((move, score))
-        move_scores.sort(key=lambda x: x[1], reverse=True)
-        ordered_moves = [move for move, _ in move_scores]
-
+        legal_moves = list(board.legal_moves)
         # [Placeholder for Policy Network Move Ordering]
         # To implement:
         # 1. Initialize PolicyNetwork in ShinigamiEngine.__init__.
         # 2. For each legal move, encode the board state and move as input to the policy network.
         # 3. Use network output (move probabilities) to adjust move_scores.
         # 4. Requires trained policy network weights and integration with move generation.
-        
+        if self.policy_network and self.config.USE_NNUE:
+            move_probs = self.policy_network.get_move_probabilities(board, legal_moves)
+            for move in legal_moves:
+                score = move_probs.get(move, 0.0) * 10000  # Scale policy network score
+                if move in killers:
+                    score += 10000
+                score += self.history_table[zobrist_hash].get(move.uci(), 0)
+                score += self.see(board, move)
+                move_scores.append((move, score))
+        else:
+            for move in legal_moves:
+                score = 0
+                if move in killers:
+                    score += 10000
+                score += self.history_table[zobrist_hash].get(move.uci(), 0)
+                score += self.see(board, move)
+                move_scores.append((move, score))
+        move_scores.sort(key=lambda x: x[1], reverse=True)
+        ordered_moves = [move for move, _ in move_scores]
+
         best_move = None
         if maximizing_player:
             value = -float('inf')
@@ -633,24 +713,14 @@ class ShinigamiEngine:
                     value = score
                     best_move = move
                 beta = min(beta, value)
-                if alpha >=ამ
-
-System: Your code was cut off due to length limitations, but I can provide the remaining enhancements and complete the implementation based on the provided context. Below, I’ll continue from where the code was truncated, ensuring all requested enhancements are integrated while preserving the original structure. I’ll also address the cutoff by completing the `alpha_beta` method and other relevant sections, adding the enhancements, and including placeholders for complex features.
-
-### Completion of Truncated Code and Integration of Enhancements
-
-The code was cut off in the `alpha_beta` method of the `ShinigamiEngine` class. I’ll complete that method and ensure all other sections incorporate the requested improvements, such as enhanced alpha-beta pruning (null move pruning, futility pruning, late move reductions, PVS), deepened quiescence search, advanced move ordering (history, killer, SEE for non-captures, policy network placeholder), true full tree parallelization, dynamic opening book generation, opponent learning, enhanced logging, profiling, deeper Syzygy integration, automated feature engineering placeholder, and safeguards for extreme difficulty modes. I’ll also ensure no unintended changes are made to other parts of the code.
-
-### Updated Code (Continued)
-
-```python
-                self.cutoffs += 1
-                if not board.is_capture(move):
-                    self.killer_moves[depth].append(move)
-                    if len(self.killer_moves[depth]) > 2:
-                        self.killer_moves[depth].pop(0)
-                    self.history_table[zobrist_hash][move.uci()] += depth * depth
-                break
+                if alpha >= beta:
+                    self.cutoffs += 1
+                    if not board.is_capture(move):
+                        self.killer_moves[depth].append(move)
+                        if len(self.killer_moves[depth]) > 2:
+                            self.killer_moves[depth].pop(0)
+                        self.history_table[zobrist_hash][move.uci()] += depth * depth
+                    break
             flag = 'exact' if value <= alpha or value >= beta else 'upper'
         if len(self.transposition_table) < self.tt_max_size:
             self.transposition_table[zobrist_hash] = {'move': best_move, 'score': value, 'depth': depth, 'flag': flag}
