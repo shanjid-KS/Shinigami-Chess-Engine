@@ -1,3 +1,4 @@
+
 ---
 
 # Shinigami Chess Engine
@@ -5,24 +6,27 @@
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/language-Python-blue)
 
-**Shinigami V.1.15.8 – Gen 2 Edition**  
-A professional, parallelized chess engine with advanced evaluation, dynamic learning, and a dash of attitude.
+**Shinigami V.1.16.0 – Gen 2 Edition**  
+A professional, fully parallelized chess engine with advanced NNUE neural evaluation, genetic feature optimization, dynamic learning, and a dash of trash talk.
+
+---
 
 ## Features
 
-- **Full Tree Parallelization**: Multiprocessing for fast, deep analysis (Lazy SMP).
-- **Enhanced Alpha-Beta Pruning**: Null move pruning, futility pruning, late move reductions, principal variation search (PVS), killer/history/SEE move ordering.
-- **Deep Quiescence Search**: With tactical extension and threat detection.
-- **Advanced Evaluation**: Piece-square tables, material, (optional) NNUE neural net, and Syzygy tablebases for endgames.
-- **Dynamic Opening Book**: Learns from self-play and opponent games, includes pruning for quality.
-- **Opponent Learning**: Updates book weights based on human play.
-- **Self-Play & Training Module**: Generates games, (re)trains NNUE, and supports extensible feature engineering.
-- **Profiling & Logging**: Search statistics, nodes/sec, transposition hits, cutoffs, and full cProfile dumps.
-- **Trash Talk**: The engine taunts you as you play.
-- **UCI Protocol**: Plug into Chess GUIs (Arena, CuteChess, etc.).
-- **GUI & Console Modes**: Tkinter-based board or retro terminal mode.
-- **Difficulty Modes**: From ‘easy’ to ‘Dialing Satan’s Number’ (with multi-step confirmation for extreme settings).
-- **Placeholders for Policy Network & Feature Engineering**: Ready for future RL/Supervised move ordering and auto-tuning.
+- **Full Tree Parallelization:** Multiprocessing for rapid, deep search.
+- **Advanced Alpha-Beta Pruning:** Principal Variation Search (PVS), null-move pruning, futility pruning, late move reductions (LMR), and killer/history move heuristics.
+- **Policy Network Integration:** Neural network (PyTorch) suggests move probabilities to enhance move ordering.
+- **Dynamic NNUE Support:** Modern neural evaluation (toggleable, PyTorch required).
+- **Self-Play & Training Module:** Generates training data, retrains NNUE, and learns from real games.
+- **Genetic Feature Engineering:** Experimental auto-tuning for evaluation parameters using genetic algorithms.
+- **Dynamic Opening Book:** Learns from both self-play and human games, prunes low-performing lines.
+- **Opponent Learning:** Engine adapts its opening repertoire based on your moves.
+- **Syzygy Tablebase Integration:** Accurate endgame analysis for positions with ≤7 pieces.
+- **Profiling & Logging:** Search stats, profiling output for optimization.
+- **GUI & Console Modes:** Play via Tkinter GUI or terminal.
+- **UCI Protocol:** Compatible with modern chess GUIs.
+- **Difficulty Modes:** From casual to “Dialing Satan’s Number” (with confirmation).
+- **Trash Talk:** Expect attitude, not mercy.
 
 ---
 
@@ -36,32 +40,31 @@ A professional, parallelized chess engine with advanced evaluation, dynamic lear
 
 2. **Install Dependencies**
     ```bash
-    pip install -r requirements.txt
+    pip install python-chess numpy scipy torch pillow
     ```
-    *Dependencies:*  
-    `python-chess`, `numpy`, `scipy`, `torch`, `pillow`, `tkinter` (std on many systems)
+    GUI requires Tkinter (bundled on most systems).
 
-3. **(Optional) Add Assets**
-    - **NNUE**: Place `nnue_weights.bin` in the project root for neural evaluation
-    - **Syzygy Tablebases**: Download and set the path in `ShinigamiConfig.SYZYGY_PATH`
-    - **Opening Book**: (Polyglot) Place `book.bin` in the root if you want classic opening support
+3. **Optional: Assets**
+    - **NNUE:** Place `nnue_weights.bin` in the project root (for neural evaluation).
+    - **Syzygy Tablebases:** Download and set the path in `ShinigamiConfig.SYZYGY_PATH`.
+    - **Opening Book:** (Polyglot) Place `book.bin` in the root if available.
 
 ---
 
 ## Usage
 
-**Play in Console (default):**
+**Console Mode (default):**
 ```bash
 python Shinigami_engine.py
 ```
-- Follow prompts, select your difficulty, and play as White or Black.
+- Select difficulty and play as White or Black.
 
 **GUI Mode:**
 ```bash
 python Shinigami_engine.py --gui
 ```
 
-**Self-Play & NNUE Training:**
+**Self-Play / NNUE Training:**
 ```bash
 python Shinigami_engine.py --self-play 100
 ```
@@ -71,54 +74,38 @@ python Shinigami_engine.py --self-play 100
 python Shinigami_engine.py --cores 4
 ```
 
-**Use as a UCI Engine (for Chess GUIs):**
-- Launch: `python Shinigami_engine.py`
-- Set up in your GUI as a UCI engine (see UCI protocol support below).
+**UCI Protocol (for GUIs):**
+- Load as a UCI engine in Arena, Scid vs PC, CuteChess, etc.
 
 ---
 
 ## Difficulty Modes
 
-- **easy:** Entry-level, low search depth
+- **easy:** Beginner
 - **medium:** Club level
-- **hard:** Advanced/Expert level
+- **hard:** Strong
 - **god-of-death:** Grandmaster+
-- **puzzle:** Solve preset tactical puzzles
-- **masochist:** Insane depth, confirmation required!
-- **dialing-satan-s-number:** Joke mode, extreme resources—multi-step confirmation for safety
+- **puzzle:** Solve tactical puzzles
+- **masochist:** Insane (confirmation required)
+- **dialing-satan-s-number:** Joke/extreme mode (triple confirmation required)
 
 ---
 
-## Major v1.15.8 Enhancements
+## Major v1.16.0 Enhancements
 
-- **Profiling & Logging**: cProfile integration; logs nodes searched, NPS, cutoffs, TT hits per depth.
-- **Advanced Alpha-Beta Search**: Includes null move, futility and late move reduction pruning, plus PVS.
-- **Dynamic Opening Book**: Learns and prunes from both self-play and human games; opponent move learning.
-- **Opponent Learning**: Book is updated as you play, adapting to your style.
-- **Move Ordering**: Killer moves, history heuristics, SEE for all moves, and placeholders for policy network ordering.
-- **Policy Network Placeholders**: Hooks for RL/supervised move probability ordering.
-- **Automated Feature Engineering Placeholder**: Ready for evolutionary/gradient tuning of evaluation params.
-- **Syzygy Tablebase**: Deeper integration for accurate endgame scores.
-- **Safety for Extreme Difficulties**: Multi-step confirmation prompts for “masochist” and “dialing-satan-s-number” modes.
-- **GUI Improvements**: Now learns from your moves as you play in GUI mode.
+- **Policy Network:** Neural move-ordering for deeper search efficiency.
+- **Genetic Feature Engineering:** Experimental auto-tuning for piece values and PSTs.
+- **Pruned, Normalized Opening Book:** Keeps only best lines, adapts from both self-play and your games.
+- **Better Learning:** Tracks opponent strength, prunes weak openings faster.
+- **Profiling:** cProfile dumps to `shinigami_profile.prof` (see with `snakeviz shinigami_profile.prof`).
+- **Expanded Trash Talk:** Witty responses for every situation.
 
 ---
 
-## How to Read Logs and Profiling
+## Logging & Profiling
 
-- Logs are written to `shinigami_engine.log` (search stats, move picks, cutoffs, etc).
-- Profiling output is in `shinigami_profile.prof`.  
-  To visualize:  
-  `pip install snakeviz`  
-  `snakeviz shinigami_profile.prof`
-
----
-
-## UCI Protocol Support
-
-- Recognizes all standard UCI commands (`uci`, `isready`, `position`, `go`, etc.)
-- Can be loaded into GUIs like Arena, Scid vs PC, CuteChess, etc.
-- Accepts time controls via UCI commands
+- Logs: `shinigami_engine.log` (search stats, learning, pruning).
+- Profiling: `shinigami_profile.prof` (visualize with [SnakeViz](https://jiffyclub.github.io/snakeviz/)).
 
 ---
 
@@ -132,8 +119,7 @@ Do not claim as your own; fork, mod, and contribute instead!
 
 ## Contributing
 
-Pull requests, feature ideas, and code reviews are welcome!  
-For big changes, please open an issue first.
+PRs, feature ideas, and code reviews are welcome! For major contributions, open an issue first.
 
 ---
 
