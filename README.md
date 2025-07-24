@@ -1,4 +1,3 @@
-
 ---
 
 # Shinigami Chess Engine
@@ -6,26 +5,25 @@
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/language-Python-blue)
 
-**Shinigami V.1.16.0 – Gen 2 Edition**  
-A professional, fully parallelized chess engine with advanced NNUE neural evaluation, genetic feature optimization, dynamic learning, and a dash of trash talk.
+**Shinigami V.1.16.6 – Gen 2 Edition**  
+_A professional chess engine with advanced NNUE neural evaluation, full tree parallelization, genetic feature optimization, and a dash of trash talk._
 
 ---
 
 ## Features
 
-- **Full Tree Parallelization:** Multiprocessing for rapid, deep search.
-- **Advanced Alpha-Beta Pruning:** Principal Variation Search (PVS), null-move pruning, futility pruning, late move reductions (LMR), and killer/history move heuristics.
-- **Policy Network Integration:** Neural network (PyTorch) suggests move probabilities to enhance move ordering.
-- **Dynamic NNUE Support:** Modern neural evaluation (toggleable, PyTorch required).
-- **Self-Play & Training Module:** Generates training data, retrains NNUE, and learns from real games.
-- **Genetic Feature Engineering:** Experimental auto-tuning for evaluation parameters using genetic algorithms.
-- **Dynamic Opening Book:** Learns from both self-play and human games, prunes low-performing lines.
-- **Opponent Learning:** Engine adapts its opening repertoire based on your moves.
-- **Syzygy Tablebase Integration:** Accurate endgame analysis for positions with ≤7 pieces.
-- **Profiling & Logging:** Search stats, profiling output for optimization.
-- **GUI & Console Modes:** Play via Tkinter GUI or terminal.
-- **UCI Protocol:** Compatible with modern chess GUIs.
-- **Difficulty Modes:** From casual to “Dialing Satan’s Number” (with confirmation).
+- **Full Tree Parallelization:** Multiprocessing for deep, fast search.
+- **Advanced NNUE (HalfKAv2):** Modern neural network evaluation, enabled by default.
+- **CNN-Based Policy Network:** Move ordering powered by a convolutional neural net.
+- **Syzygy Tablebase Integration:** Fast, accurate endgame scoring (≤7 pieces).
+- **Genetic Feature Engineering:** Auto-tunes evaluation parameters with DEAP (`pip install deap`).
+- **Self-Play & Training:** Generates and learns from games, retrains both NNUE and policy networks.
+- **Dynamic Opening Book:** Tracks win/loss/draw statistics, prunes weak lines, adapts from your play.
+- **Opponent Learning:** Engine adapts its book based on your moves and strength.
+- **Puzzle Generator:** Built-in tactical puzzles and board tasks.
+- **GUI & Console Modes:** Tkinter GUI with mouse and text input, or classic terminal mode.
+- **UCI Protocol:** Plug into chess GUIs (Arena, CuteChess, etc.).
+- **Difficulty Modes:** From beginner to "Dialing Satan's Number" (with confirmation).
 - **Trash Talk:** Expect attitude, not mercy.
 
 ---
@@ -40,13 +38,13 @@ A professional, fully parallelized chess engine with advanced NNUE neural evalua
 
 2. **Install Dependencies**
     ```bash
-    pip install python-chess numpy scipy torch pillow
+    pip install python-chess numpy scipy torch pillow deap
     ```
     GUI requires Tkinter (bundled on most systems).
 
 3. **Optional: Assets**
-    - **NNUE:** Place `nnue_weights.bin` in the project root (for neural evaluation).
-    - **Syzygy Tablebases:** Download and set the path in `ShinigamiConfig.SYZYGY_PATH`.
+    - **NNUE:** Place `nnue_weights.bin` in the project root (or use `--nnue-file`).
+    - **Syzygy Tablebases:** Download and set the path in `--syzygy-path` or environment variable.
     - **Opening Book:** (Polyglot) Place `book.bin` in the root if available.
 
 ---
@@ -55,23 +53,28 @@ A professional, fully parallelized chess engine with advanced NNUE neural evalua
 
 **Console Mode (default):**
 ```bash
-python Shinigami_engine.py
+python Shinigami_Engine.py
 ```
-- Select difficulty and play as White or Black.
+- Select difficulty, play as White or Black.
 
 **GUI Mode:**
 ```bash
-python Shinigami_engine.py --gui
+python Shinigami_Engine.py --gui
 ```
 
-**Self-Play / NNUE Training:**
+**Self-Play, NNUE & Policy Training:**
 ```bash
-python Shinigami_engine.py --self-play 100
+python Shinigami_Engine.py --self-play 100
+```
+
+**Custom NNUE/Tablebase Paths:**
+```bash
+python Shinigami_Engine.py --nnue-file ./weights.bin --syzygy-path ./tablebases
 ```
 
 **Control CPU Cores:**
 ```bash
-python Shinigami_engine.py --cores 4
+python Shinigami_Engine.py --cores 4
 ```
 
 **UCI Protocol (for GUIs):**
@@ -86,19 +89,29 @@ python Shinigami_engine.py --cores 4
 - **hard:** Strong
 - **god-of-death:** Grandmaster+
 - **puzzle:** Solve tactical puzzles
-- **masochist:** Insane (confirmation required)
-- **dialing-satan-s-number:** Joke/extreme mode (triple confirmation required)
+- **masochist:** Insane (triple confirmation required!)
+- **dialing-satan-s-number:** Joke/extreme mode (triple confirmation required!)
+
+> ⚠️ **Cosmic Warning:**  
+> If your game reaches a 7-piece endgame, it's probably already over.  
+> But if you complete the **Triple Confirmation Ritual** for "Masochist" or "Dialing Satan's Number" mode...
+>
+> Your hardware may be atomized, ionized, and transformed into a singularity orbiting Ton 618.  
+> Cthulhu might show up for tea.  
+> Proceed at your own risk—and keep your sanity and CPU cooling handy.
 
 ---
 
-## Major v1.16.0 Enhancements
+## Major v1.16.6 Enhancements
 
-- **Policy Network:** Neural move-ordering for deeper search efficiency.
-- **Genetic Feature Engineering:** Experimental auto-tuning for piece values and PSTs.
-- **Pruned, Normalized Opening Book:** Keeps only best lines, adapts from both self-play and your games.
-- **Better Learning:** Tracks opponent strength, prunes weak openings faster.
-- **Profiling:** cProfile dumps to `shinigami_profile.prof` (see with `snakeviz shinigami_profile.prof`).
-- **Expanded Trash Talk:** Witty responses for every situation.
+- **CNN Policy Network:** Convolutional neural net for move ordering (trained from self-play).
+- **NNUE HalfKAv2:** Expanded feature set (98304 inputs, clipped ReLU).
+- **Improved Opening Book:** Tracks win/loss/draw rates, prunes weak openings, adapts to player strength.
+- **Self-Play Parallelization:** Fast game generation using multiprocessing.
+- **GUI:** Tkinter board with mouse and text input, highlights legal moves.
+- **Search Interruption:** UCI "stop" command halts search gracefully.
+- **Dynamic Time Controls:** Time allocation scales with position complexity.
+- **Enhanced Trash Talk:** Witty responses for every situation.
 
 ---
 
@@ -119,7 +132,8 @@ Do not claim as your own; fork, mod, and contribute instead!
 
 ## Contributing
 
-PRs, feature ideas, and code reviews are welcome! For major contributions, open an issue first.
+Pull requests, feature ideas, and code reviews are welcome!  
+For major contributions, open an issue first.
 
 ---
 
