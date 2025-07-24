@@ -6,7 +6,7 @@
 ![Python](https://img.shields.io/badge/language-Python_3-green)
 ![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-blue)
 
-**Shinigami V.1.16.7 – Gen 2 Edition**  
+**Shinigami V.1.16.8 – Gen 2 Edition**  
 _A professional chess engine with full tree parallelization, advanced NNUE evaluation, self-adapting features, and a cosmic sense of humor._
 
 ---
@@ -101,7 +101,7 @@ python Shinigami_Engine.py --cores 4
 
 ---
 
-## Minor v1.16.7 Changes
+## Minor v1.16.8 Changes
 
 - **New 8th Difficulty:** "The Big Bang" (infinite time/depth, but blocked for sanity & comedy).
 - **Optimizations:** Faster search, deeper analysis, snappier GUI.
