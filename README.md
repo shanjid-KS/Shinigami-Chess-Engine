@@ -1,3 +1,5 @@
+Here’s your revised README.md with the FAQ section incorporating your answers, plus the cosmic horror joke woven into the Difficulty Modes section!
+
 ---
 
 # Shinigami Chess Engine
@@ -119,6 +121,41 @@ python Shinigami_Engine.py --cores 4
 
 - Logs: `shinigami_engine.log` (search stats, learning, pruning).
 - Profiling: `shinigami_profile.prof` (visualize with [SnakeViz](https://jiffyclub.github.io/snakeviz/)).
+
+---
+
+## FAQ
+
+**1. What is the main strength or unique selling point of Shinigami Chess Engine compared to other engines?**  
+A: My Engine is similar to AlphaZero, it has Automated Systems that Change its PSTs, Piece Values and Adapt to the Opponent mid-game.
+
+**2. How does Shinigami’s NNUE implementation differ from Stockfish’s or other engines?**  
+A: I can't fully answer that because the NNUE needs to be Trained by the User themselves.
+
+**3. What hardware specs are recommended for running the engine at extreme settings (e.g., “masochist” or “dialing-satan-s-number”)?**  
+A: You'll either need a Quantum Supercomputer with a Black hole Penson Swarm Plugged in or a Death Wish.
+
+**4. Is there support for custom opening books, and how does Shinigami learn/adapt openings from self-play or opponents?**  
+A: Yes, it Absolutely does.
+
+**5. What’s the best way to train or improve the Policy Network and NNUE modules?**  
+A: You can learn it from Someone Else. 
+
+**6. How does the engine’s trash talk feature work, and can it be customized or disabled?**  
+A: Yes, it can be Customized and you can disable it by wiping the entire module's Dictionary.
+
+**7. Are there known limitations or funny side effects when using Syzygy tablebases or the deepest search modes?**  
+A: The only answer is `Your Firmware may summon Outer Gods if you use the Deepest Search modes`.
+
+**8. Is Shinigami UCI-compliant for easy integration with chess GUIs?**  
+A: It has UCI protocols.
+
+**9. Can users contribute their own neural weights, feature sets, or puzzles?**  
+A: Absolutely. thanks for the Help!
+
+**10. What should users do if the engine crashes or their hardware is “atomized” by extreme settings?**  
+
+A: Ahem, you should've read what you agreed to when the 3 Confirmation Ritual was happening.
 
 ---
 
