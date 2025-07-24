@@ -35,7 +35,7 @@ logging.basicConfig(
 
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.16. - Gen 2 Edition"
+    ENGINE_NAME = "Shinigami V.1.16.8 - Gen 2 Edition"
     PIECE_VALUES = {
         chess.PAWN: 100,
         chess.KNIGHT: 520,
@@ -52,7 +52,7 @@ class ShinigamiConfig:
         'puzzle': {'base': 30, 'increment': 0},
         'masochist': {'base': 7000000, 'increment': 150},
         'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000},  # Yeah that's 69 Eons
-        'the-big-bang': {'base': float('inf'), 'increment': 435,475,000,800,000,000}  # Infinite time for The Big Bang and the increment time is same as the time since the Big Bang occured 
+        'the-big-bang': {'base': float('inf'), 'increment': 435475000800000000}  # Infinite time for The Big Bang and the increment time is same as the time since the Big Bang occured 
     }
     DEPTHS = {
         'easy': 1,  # Newbie?
