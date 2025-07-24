@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami V.1.16.6 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami V.1.16.7 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (credit @Tonmoy-KS, do not claim as own)
 """
@@ -35,13 +35,13 @@ logging.basicConfig(
 
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.16.6 - Gen 2 Edition"
+    ENGINE_NAME = "Shinigami V.1.16. - Gen 2 Edition"
     PIECE_VALUES = {
         chess.PAWN: 100,
         chess.KNIGHT: 520,
         chess.BISHOP: 530,
         chess.ROOK: 800,
-        chess.QUEEN: 900, # Queen value is less so the Engine can make Powerful sacrifices without being Held back by Piece Values
+        chess.QUEEN: 900,  # Less so the Engine can make Powerful sacrifices without being Held back by Piece Values
         # King Value not Omitted due to it not being used in Board Evaluation
     }
     TIME_CONTROLS = {
@@ -51,20 +51,22 @@ class ShinigamiConfig:
         'god-of-death': {'base': 60, 'increment': 50},
         'puzzle': {'base': 30, 'increment': 0},
         'masochist': {'base': 7000000, 'increment': 150},
-        'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000} # Yeah that's 69 Eons
+        'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000},  # Yeah that's 69 Eons
+        'the-big-bang': {'base': float('inf'), 'increment': 0}  # Infinite time for The Big Bang
     }
     DEPTHS = {
         'easy': 1,  # Newbie?
-        'medium': 6, # Hardcore Amateur Player
+        'medium': 6,  # Hardcore Amateur Player
         'hard': 14,  # Strong but not the Strongest
-        'god-of-death': 24, # The Best
+        'god-of-death': 24,  # The Best
         'puzzle': 4,
-        'masochist': 40, # you like Pain eh?
-        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 # it's just Experimental don't enable
+        'masochist': 40,  # you like Pain eh?
+        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,  # it's just Experimental don't enable
+        'the-big-bang': float('inf')  # Infinite depth for The Big Bang
     }
     NNUE_FILE = os.getenv('SHINIGAMI_NNUE_FILE', 'nnue_weights.bin')
     SYZYGY_PATH = os.getenv('SHINIGAMI_SYZYGY_PATH', './tablebases')
-    USE_NNUE = True # Enabled by Default but disable it if you don't have Python-Torch Installed
+    USE_NNUE = True  # Enabled by Default but disable it if you don't have Python-Torch Installed
     NUM_PROCESSES = max(1, mp.cpu_count() // 2)
     PIECE_SQUARE_TABLES = {
         chess.PAWN: [
@@ -175,6 +177,15 @@ class ShinigamiConfig:
             "Tick-tock, your clock's screaming for mercy.",
             "Time's burning, just like your position.",
             "Low on time? I'll finish this before you blink."
+        ],
+        "the_big_bang": [
+            "The Big Bang? I'd rather calculate the universe's expansion than that depth!",
+            "Infinite depth? The universe would collapse before I make a move. Pick something sane!",
+            "The Big Bang mode? Nope, I'm not unraveling the fabric of reality today!",
+            "∞ depth? I can't even handle that kind of cosmic chaos. Choose again!",
+            "The Big Bang? I'd need a billion years and a black hole to compute that. Try again!",
+            "You really want to see the heat death of the Universe? Call Entropy-Kun.",
+            "Infinite depth? I'd be stuck until the heat death of the universe. Nope."
         ]
     }
 
@@ -1028,13 +1039,26 @@ class ShinigamiEngine:
         return None, None
 
     def select_difficulty(self) -> str:
-        """Select AI difficulty with confirmation for extreme modes."""
-        print("Select AI difficulty: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode, 6) Masochist, 7) Dialing Satan's Number")
+        """Select AI difficulty with confirmation for extreme modes and safeguard for The Big Bang."""
+        print("Select AI difficulty: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode, 6) Masochist, 7) Dialing Satan's Number, 8) The Big Bang")
         while True:
-            difficulty_input = input("Enter 1, 2, 3, 4, 5, 6, or 7: ").strip()
-            difficulties = {'1': 'easy', '2': 'medium', '3': 'hard', '4': 'god-of-death', '5': 'puzzle', '6': 'masochist', '7': 'dialing-satan-s-number'}
+            difficulty_input = input("Enter 1, 2, 3, 4, 5, 6, 7, or 8: ").strip()
+            difficulties = {
+                '1': 'easy',
+                '2': 'medium',
+                '3': 'hard',
+                '4': 'god-of-death',
+                '5': 'puzzle',
+                '6': 'masochist',
+                '7': 'dialing-satan-s-number',
+                '8': 'the-big-bang'
+            }
             if difficulty_input in difficulties:
                 difficulty = difficulties[difficulty_input]
+                if difficulty == 'the-big-bang':
+                    print(random.choice(self.config.TRASH_TALK["the_big_bang"]))
+                    logging.warning("Attempted to enable The Big Bang mode; rejected due to safeguard")
+                    continue
                 if difficulty in ['masochist', 'dialing-satan-s-number']:
                     for i in range(3):
                         confirm = input(f"Confirm enabling {difficulty} (step {i+1}/3) [y/n]: ").strip().lower()
@@ -1158,7 +1182,7 @@ class ShinigamiEngine:
                 parts = command.split()
                 difficulty = "hard"
                 depth = self.config.DEPTHS[difficulty]
-                time_control = self.config.TIME_CONTROLS[difficulty].copy()
+                time_control = self.config.TIME_CONT Controls[difficulty].copy()
                 if "wtime" in parts and "btime" in parts:
                     time_control['base'] = int(parts[parts.index("wtime") + 1]) / 1000 if board.turn == chess.WHITE else int(parts[parts.index("btime") + 1]) / 1000
                     time_control['increment'] = int(parts[parts.index("winc") + 1]) / 1000 if "winc" in parts else 0
