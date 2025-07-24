@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami V.1.16.7 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami V.1.16.8 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (credit @Tonmoy-KS, do not claim as own)
 """
@@ -41,7 +41,7 @@ class ShinigamiConfig:
         chess.KNIGHT: 520,
         chess.BISHOP: 530,
         chess.ROOK: 800,
-        chess.QUEEN: 900,  # Less so the Engine can make Powerful sacrifices without being Held back by Piece Values
+        chess.QUEEN: 900,  # Queen is less so the Engine can make Powerful sacrifices without being Held back by Piece Values
         # King Value not Omitted due to it not being used in Board Evaluation
     }
     TIME_CONTROLS = {
@@ -52,7 +52,7 @@ class ShinigamiConfig:
         'puzzle': {'base': 30, 'increment': 0},
         'masochist': {'base': 7000000, 'increment': 150},
         'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000},  # Yeah that's 69 Eons
-        'the-big-bang': {'base': float('inf'), 'increment': 0}  # Infinite time for The Big Bang
+        'the-big-bang': {'base': float('inf'), 'increment': 435,475,000,800,000,000}  # Infinite time for The Big Bang and the increment time is same as the time since the Big Bang occured 
     }
     DEPTHS = {
         'easy': 1,  # Newbie?
