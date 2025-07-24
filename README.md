@@ -1,5 +1,3 @@
-Here’s your revised README.md with the FAQ section incorporating your answers, plus the cosmic horror joke woven into the Difficulty Modes section!
-
 ---
 
 # Shinigami Chess Engine
