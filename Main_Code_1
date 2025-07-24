@@ -41,7 +41,7 @@ class ShinigamiConfig:
         chess.KNIGHT: 520,
         chess.BISHOP: 530,
         chess.ROOK: 800,
-        chess.QUEEN: 900, # Less so the Engine can make Powerful sacrifices without being Held back by Piece Values
+        chess.QUEEN: 900, # Queen value is less so the Engine can make Powerful sacrifices without being Held back by Piece Values
         # King Value not Omitted due to it not being used in Board Evaluation
     }
     TIME_CONTROLS = {
