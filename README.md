@@ -5,26 +5,26 @@
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/language-Python-blue)
 
-**Shinigami V.1.16.6 – Gen 2 Edition**  
-_A professional chess engine with advanced NNUE neural evaluation, full tree parallelization, genetic feature optimization, and a dash of trash talk._
+**Shinigami V.1.16.7 – Gen 2 Edition**  
+_A professional chess engine with full tree parallelization, advanced NNUE evaluation, self-adapting features, and a cosmic sense of humor._
 
 ---
 
 ## Features
 
-- **Full Tree Parallelization:** Multiprocessing for deep, fast search.
-- **Advanced NNUE (HalfKAv2):** Modern neural network evaluation, enabled by default.
-- **CNN-Based Policy Network:** Move ordering powered by a convolutional neural net.
-- **Syzygy Tablebase Integration:** Fast, accurate endgame scoring (≤7 pieces).
-- **Genetic Feature Engineering:** Auto-tunes evaluation parameters with DEAP (`pip install deap`).
-- **Self-Play & Training:** Generates and learns from games, retrains both NNUE and policy networks.
-- **Dynamic Opening Book:** Tracks win/loss/draw statistics, prunes weak lines, adapts from your play.
-- **Opponent Learning:** Engine adapts its book based on your moves and strength.
+- **Full Tree Parallelization:** Fast, multicore search for epic depth.
+- **Advanced NNUE (HalfKAv2):** Modern neural evaluation (user-trainable).
+- **CNN Policy Network:** Move ordering powered by a convolutional neural net.
+- **Syzygy Tablebase Support:** Endgame perfection (≤7 pieces).
+- **Genetic Feature Engineering:** DEAP-powered auto-tuning for piece values and tables.
+- **Self-Play & Training:** Generates and learns from games, retrains NNUE and policy networks.
+- **Dynamic Opening Book:** Adapts to self-play and opponent moves.
+- **Opponent Learning:** Engine adapts to your style in real time.
 - **Puzzle Generator:** Built-in tactical puzzles and board tasks.
-- **GUI & Console Modes:** Tkinter GUI with mouse and text input, or classic terminal mode.
+- **GUI & Console:** Tkinter GUI (with mouse and text input) or classic terminal mode.
 - **UCI Protocol:** Plug into chess GUIs (Arena, CuteChess, etc.).
-- **Difficulty Modes:** From beginner to "Dialing Satan's Number" (with confirmation).
-- **Trash Talk:** Expect attitude, not mercy.
+- **Trash Talk Engine:** Witty, customizable, and (optionally) brutal.
+- **Extreme Difficulty Modes:** From beginner to "The Big Bang" (with cosmic warnings...).
 
 ---
 
@@ -91,27 +91,21 @@ python Shinigami_Engine.py --cores 4
 - **puzzle:** Solve tactical puzzles
 - **masochist:** Insane (triple confirmation required!)
 - **dialing-satan-s-number:** Joke/extreme mode (triple confirmation required!)
+- **the-big-bang:** ∞ depth & ∞ time ("No engine nor hardware known to man can survive this. Selection blocked for your own safety.")
 
 > ⚠️ **Cosmic Warning:**  
 > If your game reaches a 7-piece endgame, it's probably already over.  
-> But if you complete the **Triple Confirmation Ritual** for "Masochist" or "Dialing Satan's Number" mode...
->
-> Your hardware may be atomized, ionized, and transformed into a singularity orbiting Ton 618.  
-> Cthulhu might show up for tea.  
-> Proceed at your own risk—and keep your sanity and CPU cooling handy.
+> If you complete the **Triple Confirmation Ritual** for "Masochist" or "Dialing Satan's Number" mode, your hardware may be atomized, ionized, and transformed into a singularity orbiting Ton 618.  
+> Try to select "The Big Bang" and you’ll just get roasted by the engine itself, or risk summoning Entropy-Kun.
 
 ---
 
-## Major v1.16.6 Enhancements
+## Minor v1.16.7 Changes
 
-- **CNN Policy Network:** Convolutional neural net for move ordering (trained from self-play).
-- **NNUE HalfKAv2:** Expanded feature set (98304 inputs, clipped ReLU).
-- **Improved Opening Book:** Tracks win/loss/draw rates, prunes weak openings, adapts to player strength.
-- **Self-Play Parallelization:** Fast game generation using multiprocessing.
-- **GUI:** Tkinter board with mouse and text input, highlights legal moves.
-- **Search Interruption:** UCI "stop" command halts search gracefully.
-- **Dynamic Time Controls:** Time allocation scales with position complexity.
-- **Enhanced Trash Talk:** Witty responses for every situation.
+- **New 8th Difficulty:** "The Big Bang" (infinite time/depth, but blocked for sanity & comedy).
+- **Optimizations:** Faster search, deeper analysis, snappier GUI.
+- **More Trash Talk:** Especially for cosmic-scale mistakes.
+- **Enhanced Safety:** "The Big Bang" can’t be enabled, but you’ll get a universe-ending message if you try.
 
 ---
 
@@ -152,7 +146,6 @@ A: It has UCI protocols.
 A: Absolutely. thanks for the Help!
 
 **10. What should users do if the engine crashes or their hardware is “atomized” by extreme settings?**  
-
 A: Ahem, you should've read what you agreed to when the 3 Confirmation Ritual was happening.
 
 ---
