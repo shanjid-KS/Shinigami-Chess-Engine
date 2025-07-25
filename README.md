@@ -25,17 +25,25 @@ _A professional chess engine with full tree parallelization, advanced NNUE evalu
  * UCI Protocol: Plug into chess GUIs (Arena, CuteChess, etc.).
  * Trash Talk Engine: Witty, customizable, and (optionally) brutal.
  * Extreme Difficulty Modes: From beginner to "The Big Bang" (with cosmic warnings...).
-Installation
- * Clone the Repository
-   git clone https://github.com/Tonmoy-KS/Shinigami
+
+---
+
+### Installation
+
+```Clone the Repository
+git clone https://github.com/Tonmoy-KS/Shinigami
 cd Shinigami
+```
 
- * Install Dependencies
-   pip install -r requirements.txt
-
+```Install Dependencies
+pip install -r requirements.txt
+```
    Note: Ensure you have Python 3.8+.
- * Optional Assets
-   * NNUE Weights: Download nnue_weights.bin (HalfKAv2 compatible) and place it in the project root or specify the path using --nnue-file.
+
+#### Optional Assets
+
+   * NNUE Weights: Download nnue_weights.bin (HalfKAv2 compatible) and place it in the project root or specify the path using `--nnue-file`.
+
    * Syzygy Tablebases: Download and place .rtb files in ./tablebases or specify the path using --syzygy-path.
    * Polyglot Opening Book: Place a .bin file in the project root or specify it via a command-line argument.
 Usage
