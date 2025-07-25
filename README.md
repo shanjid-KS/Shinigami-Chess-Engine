@@ -4,7 +4,7 @@
 
 ![MIT License](https://img.shields.io/badge/license-MIT-red)
 ![Python](https://img.shields.io/badge/language-Python_3.8+-green)
-![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-blue)
+![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-Electric_Blue)
 
 **Shinigami V.1.16.9 – Gen 2 Edition**  
 _A professional chess engine with full tree parallelization, advanced NNUE evaluation, self-adapting features, and a cosmic sense of humor._
