@@ -2,9 +2,9 @@
 
 # Shinigami Chess Engine
 
-![MIT License](https://img.shields.io/badge/license-MIT-FF4136?style=flat&labelColor=FF4136)
-![Python](https://img.shields.io/badge/language-Python_3.8+-2ECC40?style=flat&labelColor=2ECC40)
-![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-0074D9?style=flat&labelColor=0074D9)
+![MIT License](https://img.shields.io/badge/license-MIT-FF4136?labelColor=gray)
+![Python](https://img.shields.io/badge/language-Python_3.8+-2ECC40?labelColor=gray)
+![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-0074D9?labelColor=gray)
 
 **Shinigami V.1.16.9 – Gen 2 Edition**  
 _A professional chess engine with full tree parallelization, advanced NNUE evaluation, self-adapting features, and a cosmic sense of humor._
