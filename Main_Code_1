@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami V.1.16.8 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami V.1.16.9 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (credit @Tonmoy-KS, do not claim as own)
 """
@@ -35,7 +35,7 @@ logging.basicConfig(
 
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.16.8 - Gen 2 Edition"
+    ENGINE_NAME = "Shinigami V.1.16.9 - Gen 2 Edition"
     PIECE_VALUES = {
         chess.PAWN: 100,
         chess.KNIGHT: 520,
@@ -52,7 +52,7 @@ class ShinigamiConfig:
         'puzzle': {'base': 30, 'increment': 0},
         'masochist': {'base': 7000000, 'increment': 150},
         'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000},  # Yeah that's 69 Eons
-        'the-big-bang': {'base': float('inf'), 'increment': 435475000800000000}  # Infinite time for The Big Bang and the increment time is same as the time since the Big Bang occured 
+        'the-big-bang': {'base': float('inf'), 'increment': 435475000800000000}  # Infinite time for The Big Bang and the increment time is same as the time since the Big Bang occured
     }
     DEPTHS = {
         'easy': 1,  # Newbie?
@@ -61,8 +61,8 @@ class ShinigamiConfig:
         'god-of-death': 24,  # The Best
         'puzzle': 4,
         'masochist': 40,  # you like Pain eh?
-        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,  # it's just Experimental don't enable
-        'the-big-bang': float('inf')  # Infinite depth for The Big Bang
+        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,  # it's just Experimental do NOT enable
+        'the-big-bang': float('inf')  # Infinite depth
     }
     NNUE_FILE = os.getenv('SHINIGAMI_NNUE_FILE', 'nnue_weights.bin')
     SYZYGY_PATH = os.getenv('SHINIGAMI_SYZYGY_PATH', './tablebases')
@@ -646,6 +646,7 @@ class ShinigamiEngine:
     def __init__(self):
         """Initialize the chess engine."""
         self.config = ShinigamiConfig()
+        self.config.ENGINE_NAME = "Shinigami V.1.16.8 - Gen 2 Edition"  # Updated version
         self.tablebase = None
         try:
             self.tablebase = chess.syzygy.open_tablebase(self.config.SYZYGY_PATH)
@@ -661,6 +662,10 @@ class ShinigamiEngine:
         self.tt_size = 2**20
         self.tt = mp.RawArray('Q', self.tt_size * 4)
         self.tt_lock = mp.Lock()
+        self.pawn_tt = mp.RawArray('Q', 2**18 * 3)  # Pawn hash table (zobrist, score, flag)
+        self.pawn_tt_lock = mp.Lock()
+        self.eval_cache = mp.RawArray('Q', 2**18 * 2)  # Evaluation cache (zobrist, score)
+        self.eval_cache_lock = mp.Lock()
         self.killer_moves = defaultdict(list)
         self.history_table = defaultdict(lambda: defaultdict(int))
         self.puzzle_database = [
@@ -669,7 +674,9 @@ class ShinigamiEngine:
             {"fen": "rnbqkbnr/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 1",
              "move": "e4", "task": "Find the best opening move."},
             {"fen": "r1bqk2r/pppp1ppp/5n2/2b5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 2",
-             "move": "d4", "task": "Challenge the center with a pawn."}
+             "move": "d4", "task": "Challenge the center with a pawn."},
+            {"fen": "rnbqk2r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 2",
+             "move": "d4", "task": "Pin exploitation in the opening."}  # New puzzle
         ]
         self.nnue = AdvancedNNUEEvaluator(self.config.NNUE_FILE) if self.config.USE_NNUE else None
         self.training_module = TrainingModule()
@@ -685,48 +692,238 @@ class ShinigamiEngine:
         self.nodes_searched = 0
         self.cutoffs = 0
         self.tt_hits = 0
+        self.pawn_tt_hits = 0
+        self.eval_cache_hits = 0
         self.stop_search = False
+        self.ponder_move = None  # For pondering
+
+    def evaluate_pawn_structure(self, board: chess.Board) -> int:
+        """Evaluate pawn structure: isolated, doubled, passed, chains, islands."""
+        score = 0
+        white_pawns = board.pieces(chess.PAWN, chess.WHITE)
+        black_pawns = board.pieces(chess.PAWN, chess.BLACK)
+        files = [set() for _ in range(8)]
+        for square in white_pawns:
+            files[chess.square_file(square)].add(chess.square_rank(square))
+        for square in black_pawns:
+            files[chess.square_file(square)].add(chess.square_rank(square))
+        # White pawns
+        for square in white_pawns:
+            file, rank = chess.square_file(square), chess.square_rank(square)
+            # Isolated pawns
+            if not (files[file-1] if file > 0 else set()) and not (files[file+1] if file < 7 else set()):
+                score -= 20
+            # Doubled pawns
+            if len(files[file]) > 1:
+                score -= 10 * (len(files[file]) - 1)
+            # Passed pawns
+            is_passed = True
+            for f in range(max(0, file-1), min(8, file+2)):
+                for r in range(rank+1, 8):
+                    if chess.square(f, r) in black_pawns:
+                        is_passed = False
+                        break
+                if not is_passed:
+                    break
+            if is_passed:
+                score += 10 + (10 if rank >= 5 else 0)
+            # Pawn chains
+            for adj_file in (file-1, file+1):
+                if 0 <= adj_file < 8 and rank+1 in files[adj_file]:
+                    score += 5
+        # Black pawns (mirrored)
+        for square in black_pawns:
+            file, rank = chess.square_file(square), 7 - chess.square_rank(square)
+            if not (files[file-1] if file > 0 else set()) and not (files[file+1] if file < 7 else set()):
+                score += 20
+            if len(files[file]) > 1:
+                score += 10 * (len(files[file]) - 1)
+            is_passed = True
+            for f in range(max(0, file-1), min(8, file+2)):
+                for r in range(rank+1, 8):
+                    if chess.square(f, 7-r) in white_pawns:
+                        is_passed = False
+                        break
+                if not is_passed:
+                    break
+            if is_passed:
+                score -= 10 + (10 if rank >= 5 else 0)
+            for adj_file in (file-1, file+1):
+                if 0 <= adj_file < 8 and rank+1 in files[adj_file]:
+                    score -= 5
+        # Pawn islands
+        islands = 0
+        in_island = False
+        for f in range(8):
+            if files[f]:
+                if not in_island:
+                    islands += 1
+                    in_island = True
+            else:
+                in_island = False
+        score -= 10 * islands  # Penalty for pawn islands
+        return score
+
+    def evaluate_king_safety(self, board: chess.Board) -> int:
+        """Evaluate king safety: pawn shield, open files, attackers."""
+        score = 0
+        white_king = board.king(chess.WHITE)
+        black_king = board.king(chess.BLACK)
+        phase = self.get_game_phase(board)
+        # White king safety
+        if white_king is not None:
+            king_file, king_rank = chess.square_file(white_king), chess.square_rank(white_king)
+            shield_squares = [chess.square(f, r) for f in range(max(0, king_file-1), min(8, king_file+2))
+                              for r in range(king_rank, min(8, king_rank+2)) if r >= king_rank]
+            for square in shield_squares:
+                if board.piece_at(square) and board.piece_at(square).piece_type == chess.PAWN and board.piece_at(square).color == chess.WHITE:
+                    score += 15 * (1 - phase)  # More important in opening/middlegame
+                else:
+                    score -= 10 * (1 - phase)  # Missing shield pawn
+            for f in range(max(0, king_file-1), min(8, king_file+2)):
+                if not any(chess.square(f, r) in board.pieces(chess.PAWN, chess.WHITE) for r in range(8)):
+                    score -= 10 * (1 - phase)  # Open file near king
+            for square in board.attacks(white_king):
+                if board.piece_at(square) and board.piece_at(square).color == chess.BLACK:
+                    score -= self.config.PIECE_VALUES.get(board.piece_at(square).piece_type, 0) // 10 * (1 - phase)
+        # Black king safety
+        if black_king is not None:
+            king_file, king_rank = chess.square_file(black_king), 7 - chess.square_rank(black_king)
+            shield_squares = [chess.square(f, 7-r) for f in range(max(0, king_file-1), min(8, king_file+2))
+                              for r in range(king_rank, min(8, king_rank+2)) if r >= king_rank]
+            for square in shield_squares:
+                if board.piece_at(square) and board.piece_at(square).piece_type == chess.PAWN and board.piece_at(square).color == chess.BLACK:
+                    score -= 15 * (1 - phase)
+                else:
+                    score += 10 * (1 - phase)
+            for f in range(max(0, king_file-1), min(8, king_file+2)):
+                if not any(chess.square(f, 7-r) in board.pieces(chess.PAWN, chess.BLACK) for r in range(8)):
+                    score += 10 * (1 - phase)
+            for square in board.attacks(black_king):
+                if board.piece_at(square) and board.piece_at(square).color == chess.WHITE:
+                    score += self.config.PIECE_VALUES.get(board.piece_at(square).piece_type, 0) // 10 * (1 - phase)
+        return score
+
+    def get_game_phase(self, board: chess.Board) -> float:
+        """Calculate game phase: 0 (endgame) to 1 (opening/middlegame)."""
+        material = sum(self.config.PIECE_VALUES.get(p.piece_type, 0) for p in board.piece_map().values() if p.piece_type != chess.KING)
+        max_material = 2 * (2 * self.config.PIECE_VALUES[chess.QUEEN] + 2 * self.config.PIECE_VALUES[chess.ROOK] +
+                            2 * self.config.PIECE_VALUES[chess.BISHOP] + 2 * self.config.PIECE_VALUES[chess.KNIGHT])
+        return min(1.0, max(0.0, material / max_material)) if max_material > 0 else 0.0
 
     def evaluate_position(self, board: chess.Board) -> int:
-        """Evaluate the board position using NNUE, Syzygy, or traditional heuristics."""
+        """Evaluate the board position with advanced heuristics."""
+        zobrist_hash = chess.polyglot.zobrist_hash(board)
+        index = zobrist_hash % (2**18)
+        with self.eval_cache_lock:
+            if self.eval_cache[index * 2] == zobrist_hash:
+                self.eval_cache_hits += 1
+                return self.eval_cache[index * 2 + 1] - 2**31
         if self.tablebase and len(board.piece_map()) <= 7:
             try:
                 wdl = self.tablebase.probe_wdl(board)
                 dtz = self.tablebase.probe_dtz(board)
                 score = wdl * 1000 if dtz >= 0 else -1000
                 logging.info(f"Syzygy hit: WDL={wdl}, DTZ={dtz}, score={score}")
+                with self.eval_cache_lock:
+                    self.eval_cache[index * 2] = zobrist_hash
+                    self.eval_cache[index * 2 + 1] = score + 2**31
                 return score
             except:
                 pass
         if self.config.USE_NNUE and self.nnue:
-            return self.nnue.evaluate(board)
+            score = self.nnue.evaluate(board)
+            with self.eval_cache_lock:
+                self.eval_cache[index * 2] = zobrist_hash
+                self.eval_cache[index * 2 + 1] = score + 2**31
+            return score
         score = 0
-        white_king = board.king(chess.WHITE)
-        black_king = board.king(chess.BLACK)
-        white_king_area = set()
-        black_king_area = set()
-        if white_king is not None:
-            white_king_area = {s for s in chess.SQUARES if chess.square_distance(s, white_king) <= 1}
-        if black_king is not None:
-            black_king_area = {s for s in chess.SQUARES if chess.square_distance(s, black_king) <= 1}
+        phase = self.get_game_phase(board)
+        # Material and PSTs
         for square in chess.SQUARES:
             piece = board.piece_at(square)
             if piece:
                 value = self.config.PIECE_VALUES.get(piece.piece_type, 0)
-                if piece.piece_type == chess.PAWN:
-                    if piece.color == chess.WHITE and white_king is not None:
-                        if square in white_king_area or white_king in board.attacks(square):
-                            value += 50
-                    elif piece.color == chess.BLACK and black_king is not None:
-                        if square in black_king_area or black_king in board.attacks(square):
-                            value += 50
                 score += value * (1 if piece.color == chess.WHITE else -1)
                 pst = self.config.PIECE_SQUARE_TABLES.get(piece.piece_type, [0] * 64)
                 score += pst[square if piece.color == chess.WHITE else chess.square_mirror(square)] * (1 if piece.color == chess.WHITE else -1)
+        # Pawn structure
+        score += self.evaluate_pawn_structure(board)
+        # King safety
+        score += self.evaluate_king_safety(board)
+        # Bishop pair
+        if len(board.pieces(chess.BISHOP, chess.WHITE)) >= 2:
+            score += 50 * phase
+        if len(board.pieces(chess.BISHOP, chess.BLACK)) >= 2:
+            score -= 50 * phase
+        # Mobility
+        for piece_type in [chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]:
+            for square in board.pieces(piece_type, chess.WHITE):
+                score += len(board.attacks(square)) * 5 * phase
+            for square in board.pieces(piece_type, chess.BLACK):
+                score -= len(board.attacks(square)) * 5 * phase
+        # Rook evaluation
+        for square in board.pieces(chess.ROOK, chess.WHITE):
+            file = chess.square_file(square)
+            rank = chess.square_rank(square)
+            if not board.pieces(chess.PAWN, chess.WHITE) & chess.BB_FILES[file]:
+                score += 20 * phase  # Open file
+            elif not board.pieces(chess.PAWN, chess.BLACK) & chess.BB_FILES[file]:
+                score += 10 * phase  # Semi-open file
+            if rank == 6:
+                score += 30 * phase  # 7th rank
+            # Connected rooks
+            if len(board.pieces(chess.ROOK, chess.WHITE)) >= 2:
+                score += 20 * phase
+        for square in board.pieces(chess.ROOK, chess.BLACK):
+            file = chess.square_file(square)
+            rank = 7 - chess.square_rank(square)
+            if not board.pieces(chess.PAWN, chess.BLACK) & chess.BB_FILES[file]:
+                score -= 20 * phase
+            elif not board.pieces(chess.PAWN, chess.WHITE) & chess.BB_FILES[file]:
+                score -= 10 * phase
+            if rank == 6:
+                score -= 30 * phase
+            if len(board.pieces(chess.ROOK, chess.BLACK)) >= 2:
+                score -= 20 * phase
+        # Outposts
+        for piece_type in [chess.KNIGHT, chess.BISHOP]:
+            for square in board.pieces(piece_type, chess.WHITE):
+                file, rank = chess.square_file(square), chess.square_rank(square)
+                if rank >= 3 and not any(chess.square(f, r) in board.pieces(chess.PAWN, chess.BLACK) for f in range(max(0, file-1), min(8, file+2)) for r in range(rank, 8)):
+                    if any(chess.square(f, rank-1) in board.pieces(chess.PAWN, chess.WHITE) for f in (file-1, file+1) if 0 <= f < 8):
+                        score += 25 * phase
+            for square in board.pieces(piece_type, chess.BLACK):
+                file, rank = chess.square_file(square), 7 - chess.square_rank(square)
+                if rank >= 3 and not any(chess.square(f, 7-r) in board.pieces(chess.PAWN, chess.WHITE) for f in range(max(0, file-1), min(8, file+2)) for r in range(rank, 8)):
+                    if any(chess.square(f, 7-(rank-1)) in board.pieces(chess.PAWN, chess.BLACK) for f in (file-1, file+1) if 0 <= f < 8):
+                        score -= 25 * phase
+        with self.eval_cache_lock:
+            self.eval_cache[index * 2] = zobrist_hash
+            self.eval_cache[index * 2 + 1] = score + 2**31
         return score
 
+    def store_pawn_tt(self, zobrist_hash: int, score: int, flag: str):
+        """Store pawn structure evaluation in pawn transposition table."""
+        index = zobrist_hash % (2**18)
+        with self.pawnefc36e6b2-3bc2-4e40-9a0c-a11a8cb5c3d0tt_lock:
+            self.pawn_tt[index * 3] = zobrist_hash
+            self.pawn_tt[index * 3 + 1] = score + 2**31
+            self.pawn_tt[index * 3 + 2] = {'exact': 0, 'lower': 1, 'upper': 2}[flag]
+
+    def probe_pawn_tt(self, zobrist_hash: int) -> tuple:
+        """Probe pawn transposition table."""
+        index = zobrist_hash % (2**18)
+        with self.pawn_tt_lock:
+            if self.pawn_tt[index * 3] == zobrist_hash:
+                score = self.pawn_tt[index * 3 + 1] - 2**31
+                flag = ['exact', 'lower', 'upper'][self.pawn_tt[index * 3 + 2]]
+                self.pawn_tt_hits += 1
+                return score, flag
+        return None, None
+
     def see(self, board: chess.Board, move: chess.Move) -> int:
-        """Static Exchange Evaluation for captures and threatening moves."""
+        """Static Exchange Evaluation for captures and threats."""
         target_square = move.to_square
         piece = board.piece_at(move.from_square)
         is_capture = board.is_capture(move)
@@ -741,10 +938,7 @@ class ShinigamiEngine:
             if not attackers and not board.gives_check(move) and move.promotion is None:
                 return 0
             return 80 if pinned else 50
-        if is_capture:
-            value = self.config.PIECE_VALUES.get(board.piece_at(target_square).piece_type, 0) if board.piece_at(target_square) else 0
-        else:
-            value = 50
+        value = self.config.PIECE_VALUES.get(board.piece_at(target_square).piece_type, 0) if board.is_capture(move) else 0
         attackers = board.attackers(chess.WHITE, target_square) | board.attackers(chess.BLACK, target_square)
         if not attackers:
             return value
@@ -764,13 +958,15 @@ class ShinigamiEngine:
                     min_piece = square
             if min_piece is None:
                 break
-            move = chess.Move(min_piece, target_square)
-            if move not in board.legal_moves:
+            next_move = chess.Move(min_piece, target_square)
+            if next_move not in board.legal_moves:
                 break
-            board.push(move)
+            board.push(next_move)
             gain.append(piece_values.get(board.piece_at(target_square).piece_type, 0) if board.piece_at(target_square) else 0)
             us, them = them, us
             attackers = board.attackers(them, target_square)
+        while len(board.move_stack) > 1:
+            board.pop()
         board.pop()
         result = gain[0]
         for i in range(1, len(gain), 2):
@@ -780,7 +976,7 @@ class ShinigamiEngine:
         return result
 
     def quiescence(self, board: chess.Board, alpha: int, beta: int, depth_limit: int) -> int:
-        """Quiescence search with extended tactical moves."""
+        """Quiescence search with delta pruning and SEE-based move ordering."""
         if self.stop_search:
             return alpha
         self.nodes_searched += 1
@@ -790,6 +986,9 @@ class ShinigamiEngine:
         if stand_pat >= beta:
             self.cutoffs += 1
             return beta
+        big_delta = self.config.PIECE_VALUES[chess.QUEEN] + 100  # Max material gain + margin
+        if stand_pat < alpha - big_delta:
+            return alpha
         alpha = max(alpha, stand_pat)
         move_scores = []
         for move in board.legal_moves:
@@ -810,7 +1009,7 @@ class ShinigamiEngine:
         return alpha
 
     def is_threatening_move(self, board: chess.Board, move: chess.Move) -> bool:
-        """Check if a move creates a significant threat (e.g., discovered attack)."""
+        """Check if a move creates a significant threat."""
         board.push(move)
         attackers = set()
         for square in chess.SQUARES:
@@ -827,7 +1026,7 @@ class ShinigamiEngine:
         index = zobrist_hash % self.tt_size
         with self.tt_lock:
             self.tt[index * 4] = zobrist_hash
-            self.tt[index * 4 + 1] = move.to_square | (move.from_square << 6)
+            self.tt[index * 4 + 1] = move.to_square | (move.from_square << 6) | (move.promotion << 12 if move.promotion else 0)
             self.tt[index * 4 + 2] = score + 2**31
             self.tt[index * 4 + 3] = (depth << 2) | {'exact': 0, 'lower': 1, 'upper': 2}[flag]
 
@@ -837,14 +1036,18 @@ class ShinigamiEngine:
         with self.tt_lock:
             if self.tt[index * 4] == zobrist_hash and self.tt[index * 4 + 3] >> 2 >= depth:
                 score = self.tt[index * 4 + 2] - 2**31
-                move = chess.Move(self.tt[index * 4 + 1] >> 6, self.tt[index * 4 + 1] & 63)
+                move_data = self.tt[index * 4 + 1]
+                from_square = move_data >> 6 & 63
+                to_square = move_data & 63
+                promotion = (move_data >> 12) if move_data >> 12 in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT] else None
+                move = chess.Move(from_square, to_square, promotion)
                 flag = ['exact', 'lower', 'upper'][self.tt[index * 4 + 3] & 3]
                 self.tt_hits += 1
                 return {'move': move, 'score': score, 'depth': self.tt[index * 4 + 3] >> 2, 'flag': flag}
         return None
 
     def alpha_beta(self, board: chess.Board, depth: int, alpha: int, beta: int, maximizing_player: bool, null_move=True) -> tuple:
-        """Alpha-beta pruning with PVS, null move pruning, futility pruning, LMR, and advanced move ordering."""
+        """Alpha-beta pruning with extensions, PVS, null move, LMR, and SEE ordering."""
         if self.stop_search:
             return None, alpha
         self.nodes_searched += 1
@@ -859,6 +1062,19 @@ class ShinigamiEngine:
                 return tt_entry['move'], tt_entry['score']
         if depth <= 0 or board.is_game_over():
             return None, self.quiescence(board, alpha, beta, 6)
+        # Extensions
+        extension = 0
+        if board.is_check():
+            extension += 1
+        if board.is_capture(board.move_stack[-1] if board.move_stack else None):  # Recapture extension
+            extension += 1
+        if any(move.promotion and move.to_square in chess.BB_RANKS[6:8] for move in board.legal_moves):  # Passed pawn push
+            extension += 1
+        if any(board.push(move) and board.is_checkmate() for move in board.legal_moves):  # One-move mate threat
+            board.pop()
+            extension += 1
+        depth += extension
+        # Null move pruning
         if null_move and depth >= 3 and not board.is_check() and not board.is_game_over():
             board.push(chess.Move.null())
             _, score = self.alpha_beta(board, depth - 3, -beta, -beta + 1, not maximizing_player, False)
@@ -866,11 +1082,19 @@ class ShinigamiEngine:
             if -score >= beta:
                 self.cutoffs += 1
                 return None, beta
+        # Futility pruning
         futility_margin = 150 if depth == 1 else 300 if depth == 2 else float('inf')
         if depth <= 2 and not board.is_check() and not any(board.is_capture(m) or board.gives_check(m) for m in board.legal_moves):
             eval_score = self.evaluate_position(board)
             if eval_score + futility_margin <= alpha:
                 return None, alpha
+        # Internal Iterative Deepening
+        tt_move = tt_entry['move'] if tt_entry else None
+        if not tt_move and depth >= 3:
+            _, _ = self.alpha_beta(board, depth - 2, alpha, beta, maximizing_player, False)
+            tt_entry = self.probe_tt(zobrist_hash, depth - 2)
+            tt_move = tt_entry['move'] if tt_entry else None
+        # Move ordering
         move_scores = []
         killers = self.killer_moves.get(depth, [])
         legal_moves = list(board.legal_moves)
@@ -878,6 +1102,8 @@ class ShinigamiEngine:
             move_probs = self.policy_network.get_move_probabilities(board, legal_moves)
             for move in legal_moves:
                 score = move_probs.get(move, 0.0) * 10000
+                if move == tt_move:
+                    score += 20000
                 if move in killers:
                     score += 10000
                 score += self.history_table[zobrist_hash].get(move.uci(), 0)
@@ -886,6 +1112,8 @@ class ShinigamiEngine:
         else:
             for move in legal_moves:
                 score = 0
+                if move == tt_move:
+                    score += 20000
                 if move in killers:
                     score += 10000
                 score += self.history_table[zobrist_hash].get(move.uci(), 0)
@@ -949,43 +1177,74 @@ class ShinigamiEngine:
         return best_move, value
 
     def iterative_deepening(self, board: chess.Board, depth: int, time_control: dict) -> tuple:
-        """Iterative deepening search with dynamic time control."""
+        """Iterative deepening search with aspiration windows, dynamic time allocation, and pondering."""
         start_time = time.time()
         time_limit = time_control['base']
-        if 'increment' in time_control:
-            time_limit += time_control['increment'] * (board.fullmove_number - 1)
+        increment = time_control.get('increment', 0)
+        if increment:
+            time_limit += increment * (board.fullmove_number - 1)
         legal_moves = list(board.legal_moves)
         complexity = len(legal_moves) + (10 if board.is_check() else 0)
-        time_limit = min(time_limit, time_limit * (1 + complexity / 50))
+        time_limit = min(time_limit, time_limit * (1 + complexity / 50))  # Dynamic time allocation
+        overtime_limit = time_limit * 1.1  # Allow 10% overtime for critical moves
         best_move = None
         best_score = 0
+        prev_score = 0
+        window = 50  # Initial aspiration window
         current_depth = 1
         self.nodes_searched = 0
         self.cutoffs = 0
         self.tt_hits = 0
+        self.pawn_tt_hits = 0
+        self.eval_cache_hits = 0
         profiler = cProfile.Profile()
         profiler.enable()
         if not legal_moves:
             return None, 0
-        chunk_size = max(1, len(legal_moves) // self.config.NUM_PROCESSES)
-        move_chunks = [legal_moves[i:i + chunk_size] for i in range(0, len(legal_moves), chunk_size)]
+
+        # Pondering setup: predict opponent's most likely move
+        if self.ponder_move and self.ponder_move in legal_moves:
+            board.push(self.ponder_move)
+            _, ponder_score = self.alpha_beta(board, depth - 1, -float('inf'), float('inf'), not board.turn)
+            board.pop()
+            logging.info(f"Pondered on move {self.ponder_move.uci()}, score: {ponder_score}")
+
         while current_depth <= depth and time.time() - start_time < time_limit and not self.stop_search:
-            results = []
-            with Pool(self.config.NUM_PROCESSES) as pool:
-                for moves in move_chunks:
-                    results.append(pool.apply_async(self.search_chunk, (board.copy(), current_depth, moves, -float('inf'), float('inf'), board.turn == chess.WHITE)))
-                results = [r.get() for r in results]
-            move_score_pairs = []
-            for chunk_result in results:
-                move_score_pairs.extend(chunk_result)
-            if move_score_pairs:
-                best_move, best_score = max(move_score_pairs, key=lambda x: x[1]) if board.turn == chess.WHITE else min(move_score_pairs, key=lambda x: x[1])
+            alpha = prev_score - window if best_move else -float('inf')
+            beta = prev_score + window if best_move else float('inf')
+            try:
+                temp_move, score = self.alpha_beta(board, current_depth, alpha, beta, board.turn == chess.WHITE)
+                if score <= alpha or score >= beta:  # Aspiration window fail, re-search
+                    alpha = -float('inf')
+                    beta = float('inf')
+                    temp_move, score = self.alpha_beta(board, current_depth, alpha, beta, board.turn == chess.WHITE)
+                best_move = temp_move
+                best_score = score
+                prev_score = score
+                window = max(25, window * 0.75)  # Shrink window for next iteration
+                logging.debug(f"Depth {current_depth}: Best move {best_move.uci() if best_move else 'None'}, score {score}")
+            except Exception as e:
+                logging.error(f"Search error at depth {current_depth}: {e}")
+                break
             current_depth += 1
-            elapsed_time = time.time() - start_time
-            nps = self.nodes_searched / elapsed_time if elapsed_time > 0 else 0
-            logging.info(f"Depth {current_depth-1}: nodes={self.nodes_searched}, NPS={int(nps)}, cutoffs={self.cutoffs}, tt_hits={self.tt_hits}")
+            # Allow slight overtime if close to a better move
+            if time.time() - start_time > time_limit and (time.time() - start_time < overtime_limit or score > prev_score + 100):
+                continue
+            if time.time() - start_time >= overtime_limit:
+                break
+
+        # Set up pondering for next move
+        if best_move:
+            board_copy = board.copy()
+            board_copy.push(best_move)
+            move_probs = self.policy_network.get_move_probabilities(board_copy, list(board_copy.legal_moves)) if self.policy_network else {}
+            self.ponder_move = max(move_probs.items(), key=lambda x: x[1], default=(None, 0))[0] if move_probs else None
+
         profiler.disable()
-        profiler.dump_stats('shinigami_profile.prof')
+        stats = pstats.Stats(profiler).sort_stats('cumulative')
+        stats.dump_stats('shinigami_profile.prof')
+        logging.info(f"Nodes searched: {self.nodes_searched}, Cutoffs: {self.cutoffs}, TT hits: {self.tt_hits}, "
+                     f"Pawn TT hits: {self.pawn_tt_hits}, Eval cache hits: {self.eval_cache_hits}")
         return best_move, best_score
 
     def search_chunk(self, board: chess.Board, depth: int, moves: list, alpha: int, beta: int, maximizing_player: bool) -> list:
@@ -1003,17 +1262,44 @@ class ShinigamiEngine:
         return results
 
     def get_best_move(self, board: chess.Board, depth: int, difficulty: str) -> chess.Move:
-        """Get best move, prioritizing opening book then alpha-beta."""
-        move = self.get_opening_move(board)
-        if move and move in board.legal_moves:
-            return move
-        return self.iterative_deepening(board, depth, self.config.TIME_CONTROLS[difficulty])[0]
+        """Get the best move for the given board position."""
+        time_control = self.config.TIME_CONTROLS.get(difficulty, self.config.TIME_CONTROLS['medium'])
+        depth = self.config.DEPTHS.get(difficulty, depth)
+        if difficulty == 'the-big-bang':
+            logging.warning(random.choice(self.config.TRASH_TALK['the_big_bang']))
+            depth = 10  # Fallback to sane depth
+        if depth > 100:
+            logging.warning("Depth too high! Reducing to 10 to avoid eternal suffering.")
+            depth = 10
+        if self.opening_book:
+            try:
+                entries = list(self.opening_book.find_all(board))
+                if entries:
+                    weights = [entry.weight for entry in entries]
+                    best_entry = random.choices(entries, weights=weights, k=1)[0]
+                    move = best_entry.move
+                    logging.info(f"Opening book move: {move.uci()}")
+                    return move
+            except Exception as e:
+                logging.warning(f"Opening book error: {e}")
+        move, score = self.iterative_deepening(board, depth, time_control)
+        if move:
+            logging.info(f"Best move: {move.uci()}, Score: {score}")
+            if board.is_check():
+                logging.info(random.choice(self.config.TRASH_TALK['check']))
+            elif board.is_capture(move):
+                logging.info(random.choice(self.config.TRASH_TALK['capture']))
+            self.training_module.learn_from_opponent(board, move, "ongoing")
+        else:
+            logging.warning("No move found, likely game over or illegal position")
+        return move
 
     def get_opening_move(self, board: chess.Board) -> chess.Move:
         """Get move from Polyglot or dynamic opening book."""
         if self.opening_book:
             try:
                 entry = self.opening_book.weighted_choice(board)
+                logging.info(f"Polyglot book move: {entry.move.uci()}")
                 return entry.move
             except:
                 pass
@@ -1022,12 +1308,16 @@ class ShinigamiEngine:
             moves = []
             weights = []
             for move in board.legal_moves:
-                move_hash = chess.polyglot.zobrist_hash(board.copy().push(move))
+                board_copy = board.copy()
+                board_copy.push(move)
+                move_hash = chess.polyglot.zobrist_hash(board_copy)
                 if move_hash in self.training_module.opening_book:
                     moves.append(move)
                     weights.append(self.training_module.opening_book[move_hash]['weight'])
             if moves:
-                return random.choices(moves, weights=weights, k=1)[0]
+                move = random.choices(moves, weights=weights, k=1)[0]
+                logging.info(f"Dynamic book move: {move.uci()}")
+                return move
         return None
 
     def generate_puzzle(self, board: chess.Board) -> tuple:
@@ -1035,7 +1325,12 @@ class ShinigamiEngine:
         if self.puzzle_database:
             puzzle = random.choice(self.puzzle_database)
             board.set_fen(puzzle['fen'])
-            return board.parse_san(puzzle['move']), puzzle['task']
+            try:
+                move = board.parse_san(puzzle['move'])
+                logging.info(f"Generated puzzle: {puzzle['task']}, move: {move.uci()}")
+                return move, puzzle['task']
+            except ValueError:
+                logging.warning(f"Invalid puzzle move: {puzzle['move']}")
         return None, None
 
     def select_difficulty(self) -> str:
@@ -1122,7 +1417,7 @@ class ShinigamiEngine:
                 move = self.get_best_move(board, depth, difficulty)
                 if move:
                     board.push(move)
-                    logging.info(f"AI move: {move}")
+                    logging.info(f"AI move: {move.uci()}")
                     if board.is_check():
                         print(random.choice(self.config.TRASH_TALK["check"]))
                     elif board.is_capture(move):
@@ -1151,11 +1446,8 @@ class ShinigamiEngine:
 
     def uci_loop(self):
         """Handle UCI protocol commands for integration with chess GUIs."""
-        # [Placeholder for Search Interruption]
-        # To implement:
-        # 1. Add a shared flag (e.g., self.stop_search = Manager.Value('b', False)).
-        # 2. Check self.stop_search in alpha_beta and quiescence to exit early.
-        # 3. Requires synchronization across processes in iterative_deepening.
+        manager = Manager()
+        self.stop_search = manager.Value('b', False)
         board = chess.Board()
         while True:
             command = input().strip()
@@ -1170,7 +1462,7 @@ class ShinigamiEngine:
                 self.config.USE_NNUE = "value true" in command.lower()
                 print(f"info string NNUE {'enabled' if self.config.USE_NNUE else 'disabled'}")
             elif command == "stop":
-                self.stop_search = True
+                self.stop_search.value = True
             elif command.startswith("position"):
                 parts = command.split()
                 board = chess.Board()
@@ -1182,14 +1474,14 @@ class ShinigamiEngine:
                 parts = command.split()
                 difficulty = "hard"
                 depth = self.config.DEPTHS[difficulty]
-                time_control = self.config.TIME_CONT Controls[difficulty].copy()
+                time_control = self.config.TIME_CONTROLS[difficulty].copy()
                 if "wtime" in parts and "btime" in parts:
                     time_control['base'] = int(parts[parts.index("wtime") + 1]) / 1000 if board.turn == chess.WHITE else int(parts[parts.index("btime") + 1]) / 1000
                     time_control['increment'] = int(parts[parts.index("winc") + 1]) / 1000 if "winc" in parts else 0
                 elif "movetime" in parts:
                     time_control['base'] = int(parts[parts.index("movetime") + 1]) / 1000
                     time_control['increment'] = 0
-                self.stop_search = False
+                self.stop_search.value = False
                 move = self.iterative_deepening(board, depth, time_control)[0]
                 if move:
                     print(f"bestmove {move.uci()}")
