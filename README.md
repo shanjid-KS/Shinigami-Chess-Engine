@@ -10,89 +10,96 @@
 _A professional chess engine with full tree parallelization, advanced NNUE evaluation, self-adapting features, and a cosmic sense of humor._
 
 ---
-### Features:
 
- * Full Tree Parallelization: Fast, multicore search for epic depth.
- * Advanced NNUE (HalfKAv2): Modern neural evaluation (user-trainable).
- * CNN Policy Network: Move ordering powered by a convolutional neural net.
- * Syzygy Tablebase Support: Endgame perfection (≤7 pieces).
- * Genetic Feature Engineering: DEAP-powered auto-tuning for piece values and tables.
- * Self-Play & Training: Generates and learns from games, retrains NNUE and policy networks.
- * Dynamic Opening Book: Adapts to self-play and opponent moves.
- * Opponent Learning: Engine adapts to your style in real time.
- * Puzzle Generator: Built-in tactical puzzles and board tasks.
- * GUI & Console: Tkinter GUI (with mouse and text input) or classic terminal mode.
- * UCI Protocol: Plug into chess GUIs (Arena, CuteChess, etc.).
- * Trash Talk Engine: Witty, customizable, and (optionally) brutal.
- * Extreme Difficulty Modes: From beginner to "The Big Bang" (with cosmic warnings...).
+## Features
+
+- **Full Tree Parallelization:** Fast, multicore search for epic depth.
+- **Advanced NNUE (HalfKAv2):** Modern neural evaluation (user-trainable).
+- **CNN Policy Network:** Move ordering powered by a convolutional neural net.
+- **Syzygy Tablebase Support:** Endgame perfection (≤7 pieces).
+- **Genetic Feature Engineering:** DEAP-powered auto-tuning for piece values and tables.
+- **Self-Play & Training:** Generates and learns from games, retrains NNUE and policy networks.
+- **Dynamic Opening Book:** Adapts to self-play and opponent moves.
+- **Opponent Learning:** Engine adapts to your style in real time.
+- **Puzzle Generator:** Built-in tactical puzzles and board tasks.
+- **GUI & Console:** Tkinter GUI (with mouse and text input) or classic terminal mode.
+- **UCI Protocol:** Plug into chess GUIs (Arena, CuteChess, etc.).
+- **Trash Talk Engine:** Witty, customizable, and (optionally) brutal.
+- **Extreme Difficulty Modes:** From beginner to "The Big Bang" (with cosmic warnings...).
 
 ---
 
-### Installation
+## Installation
 
-Clone the Repository using:
-```Clone the Repository
+**Clone the Repository:**
+```bash
 git clone https://github.com/Tonmoy-KS/Shinigami
 cd Shinigami
 ```
 
-and then Install the Dependencies using:
-```Install Dependencies
+**Install Dependencies:**
+```bash
 pip install -r requirements.txt
 ```
-   Note: Ensure you have Python 3.8+.
+*Note: Ensure you have Python 3.8+.*
 
-#### Optional Assets
-
-   * NNUE Weights: Download nnue_weights.bin (HalfKAv2 compatible) and place it in the project root or specify the path using `--nnue-file`.
-
-   * Syzygy Tablebases: Download and place .rtb files in ./tablebases or specify the path using --syzygy-path.
-   * Polyglot Opening Book: Place a .bin file in the project root or specify it via a command-line argument.
-Usage
+### Optional Assets
+- **NNUE Weights:** Download `nnue_weights.bin` (HalfKAv2 compatible) and place in the project root or specify with `--nnue-file`.
+- **Syzygy Tablebases:** Download and place .rtb files in `./tablebases` or specify path with `--syzygy-path`.
+- **Polyglot Opening Book:** Place a `.bin` file in the project root or specify via command-line argument.
 
 ---
-#### Startup Tutorial
 
-```Console Mode
+## Usage
+
+**Console Mode:**
+```bash
 python3 shinigami_Engine.py
 ```
 
-```GUI Mode
+**GUI Mode:**
+```bash
 python3 shinigami_Engine.py --gui
 ```
 
-```Self-Play & Training
+**Self-Play & Training:**
+```bash
 python3 shinigami_Engine.py --self-play 100
 python3 shinigami_Engine.py --train-nnue
 python3 shinigami_Engine.py --auto-tune
 ```
-```Custom Paths & Cores
+
+**Custom Paths & Cores:**
+```bash
 python3 shinigami_Engine.py --cores 4 --nnue-file /path/to/my_nnue.bin --syzygy-path /path/to/my_tablebases
 ```
----
-
-### Logging
-
-Search statistics, self-play games, and learning data are logged to shinigami_engine.log.
 
 ---
 
-### Extreme Difficulty Modes Explained
+## Logging
+
+Search statistics, self-play games, and learning data are logged to `shinigami_engine.log`.
+
+---
+
+## Extreme Difficulty Modes Explained
 
 The engine includes several extreme difficulty modes.
 
-#### Official: 
- * easy: Beginner level.
- * medium: Club-level player.
- * hard: Strong player.
- * god-of-death: Grandmaster+ level.
- * puzzle: For solving tactical puzzles.
+### Official
+- **easy:** Beginner level.
+- **medium:** Club-level player.
+- **hard:** Strong player.
+- **god-of-death:** Grandmaster+ level.
+- **puzzle:** For solving tactical puzzles.
 
-#### Experimental/Jokes
- * masochist: An insane mode requiring triple confirmation for those who enjoy pain. Using this or "Dialing Satan's Number" mode may atomize or ionize your hardware.
- * dialing-satan-s-number: A joke/extreme mode, also requiring triple confirmation. It comes with a time control of "69 Eons."
- * the-big-bang: An experimental infinite depth and time mode that is blocked for safety due to its extreme nature.
+### Experimental/Jokes
+- **masochist:** Insane mode requiring triple confirmation. May atomize or ionize your hardware.
+- **dialing-satan-s-number:** Joke/extreme mode with a time control of "69 Eons." Triple confirmation required.
+- **the-big-bang:** Experimental infinite depth/time mode, blocked for safety.
 
+> **Cosmic Warning:**  
+> Using the deepest modes may summon Outer Gods or turn your computer into a black hole. Use triple confirmation wisely!
 ---
 
 ### FAQ
@@ -144,35 +151,27 @@ A: I have an outline planning system for my engine, which I cannot publicly shar
 License
 
 ---
-#### Details
-License: MIT License
-Credit: Tonmoy-KS.
+
+## License
+
+**License:** MIT License  
+**Credit:** Tonmoy-KS  
 Do not claim as your own; fork, mod, and contribute instead!
 
 ---
 
-### Contributing
+## Contributing
+
 Pull requests, feature ideas, and code reviews are welcome! For major contributions, open an issue first.
 
 ---
 
-#### Contact
-GitHub: Tonmoy-KS
+## Contact
+
+GitHub: [Tonmoy-KS](https://github.com/Tonmoy-KS)
 
 ---
 
+*Happy reaping in 64 squares!* — bye
 
-
-
-
-
-
-
-----
-
-*happy reaping in 64 squares!* — bye
-
------
-
-
-
+---
