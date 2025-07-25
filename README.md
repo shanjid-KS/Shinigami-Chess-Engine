@@ -3,7 +3,7 @@
 # Shinigami Chess Engine
 
 ![MIT License](https://img.shields.io/badge/license-MIT-red)
-![Python](https://img.shields.io/badge/language-Python_3-green)
+![Python](https://img.shields.io/badge/language-Python_3.8+-green)
 ![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-blue)
 
 **Shinigami V.1.16.9 – Gen 2 Edition**  
@@ -30,11 +30,13 @@ _A professional chess engine with full tree parallelization, advanced NNUE evalu
 
 ### Installation
 
+Clone the Repository using:
 ```Clone the Repository
 git clone https://github.com/Tonmoy-KS/Shinigami
 cd Shinigami
 ```
 
+and then Install the Dependencies using:
 ```Install Dependencies
 pip install -r requirements.txt
 ```
