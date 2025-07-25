@@ -2,7 +2,7 @@
 
 # Shinigami Chess Engine
 
-![MIT License](https://img.shields.io/badge/license-MIT-000000labelColor=gray)
+![MIT License](https://img.shields.io/badge/license-MIT-0labelColor=gray)
 ![Python](https://img.shields.io/badge/language-Python_3.8+-2ECC40?labelColor=gray)
 ![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-0074D9?labelColor=gray)
 
