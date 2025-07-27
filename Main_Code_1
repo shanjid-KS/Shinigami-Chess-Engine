@@ -141,7 +141,7 @@ def get_llm_explanation(context: LLMContext) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.6,
+            temperature=0.5,
             max_tokens=350
         )
         return response.choices[0].message.content.strip()
@@ -152,7 +152,7 @@ def get_llm_explanation(context: LLMContext) -> str:
 # Configuration
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.17.8 - Gen 2 Edition"
+    ENGINE_NAME = "Shinigami V.1.17.7 - Gen 2 Edition"
     PIECE_VALUES = {
         chess.PAWN: 100,
         chess.KNIGHT: 520,
