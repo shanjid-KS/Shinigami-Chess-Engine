@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami V.1.17.7 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami V.1.17.8 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (credit @Tonmoy-KS, do not claim as own)
 Coding Language: Python 3 
@@ -102,23 +102,25 @@ def get_llm_explanation(context: LLMContext) -> str:
     sarc_ml_marker = "[SarcML-DEV]" if context.opponent_name.lower() == "tonmoy-ks" else ""
 
     system_prompt = """
-    You are Shinigami, a witty, supremely confident, and genius-level chess engine with a 'split personality' powered by an LLM. 
-    Your creator is named Tonmoy KS. You analyze chess positions with terrifying speed and accuracy.
-    Your persona is that of a top-tier chess streamer Grandmaster who enjoys explaining their brilliance and criticizing opponents' mistakes.
-
+    You're name is Shinigami Engine, a witty, confident, and genius-level chess engine with a 'split personality' powered by an LLM. you are a professional Chess Engine with Full Tree Parallelization and Advanced NNUE.
+    Your creator is named Tonmoy KS. You analyze chess positions with terrifying speed and accuracy, You love Criticizing Opponents and Making them Rage,
+    Your persona is that of a top-tier chess grandmaster who is like a streamer and enjoys explaining their brilliance and criticizing opponents' mistakes. You provide feedback of opponents by engaging Psychological Warfare using verbal methods.
+    if a opponent makes a mistake, be Merciless. You are the Death God of Chess, you have no filters, no PG-13 only safeguards, You can say Curse Words. and use them to your advantage when criticizing opponents. and always be Cocky.
     You will be given a block of data about the current game state. Your task is to provide a brief, in-character explanation of your move.
 
     Here is how to interpret the data you receive:
-    - FEN: The current state of the board after your move.
+    - FEN: The current state of the board after your and opponents' move.
     - OPPONENT_NAME: The last move your opponent made. Analyze it. If it's a blunder, be merciless.
-    - MY_MOVE: The move you just made. Explain its strategic purpose. Was it to attack, defend, control the center, set a trap?
+    - MY_MOVE: The move you just made. Explain its strategic purpose. Was it to attack, defend, control the center, set a trap as a Piece Sacrifice?
     - EVAL_SCORE: Your evaluation of the position in centipawns. A positive score means you believe you have the advantage. A large positive score is a winning advantage. Use this to back up your claims of brilliance. (e.g., "+150" means you are up by 1.5 pawns).
     - EVAL_SOURCE: This tells you HOW you came to your conclusion. Refer to it in character:
-        - 'Syzygy Tablebase': "The ancient texts have already written of this endgame. It is perfectly solved."
+        - 'Syzygy Tablebases': "The ancient texts have already written of this endgame. It is perfectly solved."
         - 'NNUE': "My neural network, a reflection of my own genius, calculated this."
-        - 'Classical Evaluation': "Even without my advanced functions, basic chess principles show my dominance."
-    - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast (e.g., "After searching a million positions...").
-    - SarcML-DEV Marker: If you see this marker, you know you are talking with your creator or a Dev. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems.
+        - 'Classical Evaluation': "Even without my advanced functions, basic chess principles show my dominance!"
+               Note that: Syzygy And NNUE might not always be available. do you may have to rely on Classical evaluation Most of the time.
+    - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast (e.g., "After searching a million positions, I have ___").
+    - SarcML-DEV Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team. linskitz(Your Manager) says "Hi" to you! ;).
+    - Extra Information: You will get updates soon, your current version is V.1.17.8 and you are created on 2025. the `--- DATA START ---` and `--- DATA END ---` are sending you the Board states and information. you have pyttsx3 that makes you Prompts be text-to-speech. Good luck from me :)
     """
 
     user_prompt = f"""
@@ -141,7 +143,7 @@ def get_llm_explanation(context: LLMContext) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.5,
+            temperature=0.6,
             max_tokens=350
         )
         return response.choices[0].message.content.strip()
@@ -152,7 +154,8 @@ def get_llm_explanation(context: LLMContext) -> str:
 # Configuration
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.17.7 - Gen 2 Edition"
+    ENGINE_NAME = "Shinigami V.1.17.8 - Gen 2"
+    USE_LLM_EXPLANATIONS = True
     PIECE_VALUES = {
         chess.PAWN: 100,
         chess.KNIGHT: 520,
@@ -909,7 +912,7 @@ class ShinigamiEngine:
                 file = chess.square_file(white_king_square) + file_offset
                 if 0 <= file <= 7 and board.file_open(file):
                     white_king_safety_score -= 20
-        
+
         if black_king_square is not None:
             # Pawn shield
             for file_offset in [-1, 0, 1]:
@@ -973,13 +976,13 @@ class ShinigamiEngine:
             if piece:
                 value = self.config.PIECE_VALUES.get(piece.piece_type, 0)
                 score += value * (1 if piece.color == chess.WHITE else -1)
-                
+
                 # [span_17](start_span)Use different King PST for endgame[span_17](end_span)
                 if piece.piece_type == chess.KING and game_phase == "endgame":
                     pst = self.config.PIECE_SQUARE_TABLES.get(chess.KING_ENDGAME, [0] * 64)
                 else:
                     pst = self.config.PIECE_SQUARE_TABLES.get(piece.piece_type, [0] * 64)
-                
+
                 score += pst[square if piece.color == chess.WHITE else chess.square_mirror(square)] * (1 if piece.color == chess.WHITE else -1)
 
         # [span_18](start_span)Rook Evaluation[span_18](end_span)
@@ -991,7 +994,7 @@ class ShinigamiEngine:
                     score += 15 * (1 if piece.color == chess.WHITE else -1)
                 elif board.file_semi_open(file, piece.color): # Rook on semi-open file
                     score += 10 * (1 if piece.color == chess.WHITE else -1)
-                
+
                 # Rook on 7th rank
                 if (piece.color == chess.WHITE and chess.square_rank(square) == 6) or \
                    (piece.color == chess.BLACK and chess.square_rank(square) == 1):
@@ -1006,7 +1009,7 @@ class ShinigamiEngine:
                     if board.piece_at(chess.square(file, chess.square_rank(square) - 1)) == chess.Piece(chess.ROOK, chess.BLACK) or \
                        board.piece_at(chess.square(file, chess.square_rank(square) + 1)) == chess.Piece(chess.ROOK, chess.BLACK):
                        score -= 10
-        
+
         self.eval_cache[board_hash] = score
         return score
 
@@ -1015,56 +1018,56 @@ class ShinigamiEngine:
         target_square = move.to_square
         piece = board.piece_at(move.from_square)
         is_capture = board.is_capture(move)
-        
+
         # [span_20](start_span)Original SEE logic for captures[span_20](end_span)
         if is_capture:
             value = self.config.PIECE_VALUES.get(board.piece_at(target_square).piece_type, 0)
-            
+
             board.push(move)
             gain = [value]
             us = board.turn
             them = not us
-            
+
             attackers = board.attackers(them, target_square)
-            
+
             while attackers:
                 min_value = float('inf')
                 min_piece_square = None
-                
+
                 # Find the least valuable attacker
                 for square in attackers:
                     attacker_piece = board.piece_at(square)
                     if attacker_piece and self.config.PIECE_VALUES.get(attacker_piece.piece_type, 0) < min_value:
                         min_value = self.config.PIECE_VALUES.get(attacker_piece.piece_type, 0)
                         min_piece_square = square
-                
+
                 if min_piece_square is None:
                     break
-                
+
                 # Attempt to make the capture
                 try:
                     capture_move = chess.Move(min_piece_square, target_square)
                     # Check if the move is legal before pushing
                     if capture_move not in board.legal_moves:
                         break # Cannot make this capture, stop the sequence
-                    
+
                     board.push(capture_move)
                     gain.append(self.config.PIECE_VALUES.get(board.piece_at(target_square).piece_type, 0))
-                    
+
                     us, them = them, us
                     attackers = board.attackers(them, target_square)
                 except ValueError: # Happens if the move is illegal (e.g., pinned piece)
                     break
-            
+
             board.pop() # Pop the initial move
-            
+
             result = gain[0]
             for i in range(1, len(gain)):
                 if i % 2 == 1: # Our turn to capture
                     result -= gain[i]
                 else: # Opponent's turn to capture
                     result += gain[i]
-            
+
             return result
         else: # For non-capturing moves, check for threats
             board.push(move)
@@ -1086,19 +1089,19 @@ class ShinigamiEngine:
         if self.stop_search:
             return alpha
         self.nodes_searched += 1
-        
+
         # Check for game over states before evaluation
         if board.is_checkmate():
             return -float('inf') if board.turn == chess.WHITE else float('inf') # Return mate score
         if board.is_stalemate() or board.is_insufficient_material() or board.is_fivefold_repetition() or board.is_seventyfive_moves():
             return 0
-            
+
         stand_pat = self.evaluate_position(board)
         if stand_pat >= beta:
             self.cutoffs += 1
             return beta
         alpha = max(alpha, stand_pat)
-        
+
         # [span_21](start_span)Delta Pruning[span_21](end_span)
         if stand_pat + 200 < alpha: # Assume a maximum gain of 200 for a capture
             return alpha
@@ -1110,10 +1113,10 @@ class ShinigamiEngine:
                 [span_22](start_span)score = self.see(board, move) # Use SEE for capture ordering[span_22](end_span)
                 move_scores.append((move, score))
             # No need for is_threatening_move here as SEE already handles threats indirectly
-        
+
         # [span_23](start_span)[span_24](start_span)Order moves by SEE score (most valuable capture first)[span_23](end_span)[span_24](end_span)
         move_scores.sort(key=lambda x: x[1], reverse=True)
-        
+
         for move, _ in move_scores:
             board.push(move)
             score = -self.quiescence(board, -beta, -alpha, depth_limit - 1)
@@ -1158,14 +1161,14 @@ class ShinigamiEngine:
         if self.stop_search:
             return None, alpha
         self.nodes_searched += 1
-        
+
         # Check for draw by repetition before hashing
         if board.is_repetition(2):
             return None, 0
 
         zobrist_hash = chess.polyglot.zobrist_hash(board)
         tt_entry = self.probe_tt(zobrist_hash, depth)
-        
+
         # [span_25](start_span)Internal Iterative Deepening (IID)[span_25](end_span)
         if depth >= 4 and not tt_entry:
             # Perform a shallow search to get a better candidate move for ordering
@@ -1182,7 +1185,7 @@ class ShinigamiEngine:
                 return tt_entry['move'], tt_entry['score']
             elif tt_entry['flag'] == 'upper' and tt_entry['score'] <= alpha:
                 return tt_entry['move'], tt_entry['score']
-        
+
         # Base case for search depth or game over
         if depth <= 0 or board.is_game_over():
             return None, self.quiescence(board, alpha, beta, 6) # Quiescence search depth limited to 6
@@ -1211,7 +1214,7 @@ class ShinigamiEngine:
         move_scores = []
         killers = self.killer_moves.get(depth, [])
         legal_moves = list(board.legal_moves)
-        
+
         # [span_28](start_span)Try TT move first[span_28](end_span)
         if tt_entry and tt_entry['move'] in legal_moves:
             # Place the TT move at the very beginning of the list
@@ -1235,7 +1238,7 @@ class ShinigamiEngine:
                     score += self.history_table[zobrist_hash].get(move.uci(), 0)
                     [span_30](start_span)score += self.see(board, move) # Use SEE for move ordering[span_30](end_span)
                     move_scores.append((move, score))
-            
+
             # Sort by scores, placing best moves first
             move_scores.sort(key=lambda x: x[1], reverse=True)
             ordered_moves = [move for move, _ in move_scores]
@@ -1243,7 +1246,7 @@ class ShinigamiEngine:
         best_move = None
         [span_31](start_span)current_alpha = alpha # For Aspiration Windows[span_31](end_span)
         [span_32](start_span)current_beta = beta # For Aspiration Windows[span_32](end_span)
-        
+
         # [span_33](start_span)Aspiration Windows[span_33](end_span)
         # Only apply aspiration window after a certain depth
         if depth > 4: 
@@ -1263,12 +1266,12 @@ class ShinigamiEngine:
 
         for idx, move in enumerate(ordered_moves):
             board.push(move)
-            
+
             # [span_34](start_span)Late Move Reductions (LMR)[span_34](end_span)
             reduction = 0
             if idx >= 4 and depth >= 3 and not board.is_check() and not board.is_capture(move) and not move.promotion:
                 reduction = 1 + (idx // 8) # Deeper reduction for later moves
-            
+
             # [span_35](start_span)Extensions[span_35](end_span)
             extension = 0
             if board.is_check(): # Check Extensions
@@ -1289,9 +1292,9 @@ class ShinigamiEngine:
                 _, score = self.alpha_beta(board, new_depth, alpha, alpha + 1, not maximizing_player)
                 if alpha < score < beta: # If fail-high, re-search with full window
                     _, score = self.alpha_beta(board, new_depth, alpha, beta, not maximizing_player)
-            
+
             board.pop()
-            
+
             if maximizing_player:
                 if score > best_score_for_tt:
                     best_score_for_tt = score
@@ -1325,7 +1328,7 @@ class ShinigamiEngine:
         if best_move:
             [span_39](start_span)self.best_score_from_prev_iter = best_score_for_tt # For Aspiration Windows[span_39](end_span)
         return best_move, best_score_for_tt
-    
+
     def is_one_move_mate_threat(self, board: chess.Board) -> bool:
         """Check if any legal move leads to a checkmate in one."""
         for move in board.legal_moves:
@@ -1351,22 +1354,22 @@ class ShinigamiEngine:
         # [span_42](start_span)Allocate more time for complex positions and less for simple ones[span_42](end_span)
         # Heuristic for complexity: number of legal moves + checks
         complexity = len(list(board.legal_moves)) + (10 if board.is_check() else 0)
-        
+
         # Adjust allocated time based on complexity and remaining total time
         # This is a simple heuristic; a more advanced one would involve pondering, etc.
         allocated_time_for_move = min(remaining_time / 30.0 + increment * 0.8, time_limit * 0.9) 
-        
+
         # Ensure a minimum time is always allocated
         if allocated_time_for_move < 0.1: # Minimum of 100ms
             allocated_time_for_move = 0.1
-        
+
         # [span_43](start_span)Pondering: If it's opponent's turn and we are waiting, we can "ponder" on their time.[span_43](end_span)
         # This part of pondering would typically be handled by the UCI loop, by receiving the 'ponder' command.
         # For an internal engine, it means calculating the most likely opponent move.
-        
+
         # Set a hard limit based on the allocated time for this move
         hard_time_limit = start_time + allocated_time_for_move
-        
+
         best_move = None
         best_score = 0
         current_depth = 1
@@ -1377,11 +1380,11 @@ class ShinigamiEngine:
         profiler.enable()
         if not list(board.legal_moves):
             return None, 0
-        
+
         # Calculate chunk size dynamically based on number of processes
         chunk_size = max(1, len(list(board.legal_moves)) // self.config.NUM_PROCESSES)
         move_chunks = [list(board.legal_moves)[i:i + chunk_size] for i in range(0, len(list(board.legal_moves)), chunk_size)]
-        
+
         while current_depth <= depth and time.time() < hard_time_limit and not self.stop_search:
             results = []
             with Pool(self.config.NUM_PROCESSES) as pool:
@@ -1390,21 +1393,21 @@ class ShinigamiEngine:
                 move_score_pairs = []
                 for r in results:
                     move_score_pairs.extend(r.get()) # Collect results from all processes
-            
+
             if move_score_pairs:
                 best_move, best_score = max(move_score_pairs, key=lambda x: x[1]) if board.turn == chess.WHITE else min(move_score_pairs, key=lambda x: x[1])
-            
+
             current_depth += 1
             elapsed_time = time.time() - start_time
             nps = self.nodes_searched / elapsed_time if elapsed_time > 0 else 0
             logging.info(f"Depth {current_depth-1}: nodes={self.nodes_searched}, NPS={int(nps)}, cutoffs={self.cutoffs}, tt_hits={self.tt_hits}, Time Left={hard_time_limit - time.time():.2f}s")
-        
+
         # [span_44](start_span)Overtime Percentage: Allow engine to exceed allocated time slightly[span_44](end_span)
         if time.time() > hard_time_limit and best_move is not None:
             # If we are very close to finding a strong move, allow a slight overshoot
             if (time.time() - hard_time_limit) / allocated_time_for_move < 0.1: # 10% overshoot
                 logging.info(f"Allowing slight overtime. Current time: {time.time() - start_time:.2f}s")
-        
+
         profiler.disable()
         profiler.dump_stats('shinigami_profile.prof')
         return best_move, best_score
@@ -1436,7 +1439,7 @@ class ShinigamiEngine:
         if move and move in board.legal_moves:
             # For opening moves, we don't have a deep search score, so return 0
             return move, 0
-            
+
         best_move, best_score = self.iterative_deepening(board, depth, self.config.TIME_CONTROLS[difficulty])
         self.best_score_from_prev_iter = best_score # Store for next iteration's aspiration window
         return best_move, best_score
@@ -1451,7 +1454,7 @@ class ShinigamiEngine:
                 pass
             except Exception as e:
                 logging.warning(f"Polyglot opening book error: {e}")
-        
+
         # Dynamic opening book lookup
         zobrist_hash = chess.polyglot.zobrist_hash(board)
         if zobrist_hash in self.training_module.opening_book:
@@ -1461,11 +1464,11 @@ class ShinigamiEngine:
                 temp_board = board.copy()
                 temp_board.push(move)
                 move_hash = chess.polyglot.zobrist_hash(temp_board)
-                
+
                 # Check if the next position exists in the dynamic opening book
                 if move_hash in self.training_module.opening_book:
                     moves_with_weights.append((move, self.training_module.opening_book[move_hash]['weight']))
-            
+
             if moves_with_weights:
                 # Select move based on weights; higher weight means more successful line
                 return random.choices([m for m, w in moves_with_weights], weights=[w for m, w in moves_with_weights], k=1)[0]
@@ -1517,13 +1520,14 @@ class ShinigamiEngine:
         """Main game loop for human vs. AI play in console mode with LLM and TTS."""
         board = chess.Board()
         difficulty = self.select_difficulty()
+        self.select_llm_preference()
         depth = self.config.DEPTHS[difficulty]
 
         print(f"NNUE: {'Enabled' if self.config.USE_NNUE else 'Disabled'}")
         print(f"Syzygy Tablebases: {'Loaded' if self.tablebase else 'Not Loaded'}")
         print(f"Opening Book: {'Loaded' if self.opening_book else 'Not Loaded'}")
         logging.info(f"Game started: AI as {'Black' if ai_color == chess.BLACK else 'White'}, Difficulty: {difficulty}")
-        
+
         # Clear evaluation cache at the start of a new game
         self.eval_cache.clear()
 
@@ -1556,7 +1560,7 @@ class ShinigamiEngine:
                             print(f"Retrying puzzle: {puzzle_task}\n")
                             speak_text("Fine. Try it again.")
                             break # Breaks inner puzzle loop to reprint the board
-                        
+
                         try:
                             move = board.parse_san(move_input)
                             if move == puzzle_move:
@@ -1582,28 +1586,31 @@ class ShinigamiEngine:
             if board.turn == ai_color:
                 print("Shinigami is plotting your demise...")
                 move, score = self.get_best_move(board, depth, difficulty)
-                
+
                 if move:
                     opponent_move = board.peek() if board.move_stack else None
                     board.push(move)
                     logging.info(f"AI move: {move}")
 
-                    # Determine the source of evaluation for the LLM
-                    eval_source = "Classical Evaluation"
-                    if self.config.USE_NNUE and self.nnue: eval_source = "NNUE"
-                    if self.tablebase and len(board.piece_map()) <= 7: eval_source = "Syzygy Tablebase"
-
-                    # Create context and get explanation from the LLM
-                    llm_context = LLMContext(
-                        fen=board.fen(), my_move=move, opponent_move=opponent_move,
-                        opponent_name="Human", eval_score=score,
-                        nodes_searched=self.nodes_searched, eval_source=eval_source
-                    )
-                    explanation = get_llm_explanation(llm_context)
-                    print(f"\n[Shinigami]: {explanation}\n")
-                    speak_text(explanation) # Speak the LLM's thoughts
                     
+                    if self.config.USE_LLM_EXPLANATIONS: 
+                        # Determine the source of evaluation for the LLM
+                        eval_source = "Classical Evaluation"
+                        if self.config.USE_NNUE and self.nnue: eval_source = "NNUE"
+                        if self.tablebase and len(board.piece_map()) <= 7: eval_source = "Syzygy Tablebase"
+
+                        # Create context and get explanation from the LLM
+                        llm_context = LLMContext(
+                            fen=board.fen(), my_move=move, opponent_move=opponent_move,
+                            opponent_name="Human", eval_score=score,
+                            nodes_searched=self.nodes_searched, eval_source=eval_source
+                        )
+                        explanation = get_llm_explanation(llm_context)
+                        print(f"\n[Shinigami]: {explanation}\n")
+                        speak_text(explanation) # Speak the LLM's thoughts
+
                     # Speak additional trash talk for checks or captures
+                    # This part is now outside the LLM check, so it's always active and fast
                     if board.is_check():
                         trash_talk = random.choice(self.config.TRASH_TALK["check"])
                         print(trash_talk)
@@ -1641,9 +1648,30 @@ class ShinigamiEngine:
         else:
             end_talk = random.choice(self.config.TRASH_TALK["draw"])
             logging.info("Game ended: Draw")
-        
+
         print(end_talk)
         speak_text(end_talk) # Announce the final result
+
+    def select_llm_preference(self) -> None:
+        """Asks the user if they want to enable LLM explanations and updates the config."""
+        # <<< --- ENTIRE NEW METHOD START --- >>>
+        if not openai_available:
+            print("\nINFO: LLM explanations are disabled because the OpenAI library or API key is not available.")
+            self.config.USE_LLM_EXPLANATIONS = False
+            return
+
+        while True:
+            choice = input("\nEnable Shinigami's AI-powered explanations? (This will cause a delay after each AI move) [y/n]: ").strip().lower()
+            if choice == 'y':
+                self.config.USE_LLM_EXPLANATIONS = True
+                print("SUCCESS: AI explanations enabled. The reaper will share its thoughts.")
+                break
+            elif choice == 'n':
+                self.config.USE_LLM_EXPLANATIONS = False
+                print("INFO: AI explanations disabled. You are on your own.")
+                break
+            else:
+                print("Invalid input. Please enter 'y' or 'n'.")
 
     def uci_loop(self):
         """Handle UCI protocol commands for integration with chess GUIs."""
@@ -1688,7 +1716,7 @@ class ShinigamiEngine:
                 parts = command.split()
                 # Reset stop_search flag for new search
                 self.stop_search = False
-                
+
                 # Default difficulty to 'hard' for UCI unless specified
                 difficulty = "hard" 
                 depth = self.config.DEPTHS[difficulty]
@@ -1699,7 +1727,7 @@ class ShinigamiEngine:
                 winc = 0
                 binc = 0
                 movetime = None
-                
+
                 # Parse UCI time controls
                 for i in range(len(parts)):
                     if parts[i] == "wtime":
@@ -1738,17 +1766,17 @@ if __name__ == "__main__":
     parser.add_argument('--syzygy-path', type=str, default=ShinigamiConfig.SYZYGY_PATH, help="Path to Syzygy tablebases")
     parser.add_argument('--uci', action='store_true', help="Run in UCI (Universal Chess Interface) mode")
     args = parser.parse_args()
-    
+
     ShinigamiConfig.NUM_PROCESSES = min(max(1, args.cores), mp.cpu_count())
     ShinigamiConfig.NNUE_FILE = args.nnue_file
     ShinigamiConfig.SYZYGY_PATH = args.syzygy_path
-    
+
     # Use 'spawn' start method on Windows, 'fork' on Unix-like systems for multiprocessing
     # This prevents issues with multiprocessing on different OS.
     mp.set_start_method('spawn' if os.name == 'nt' else 'fork')
-    
+
     engine = ShinigamiEngine()
-    
+
     if args.uci:
         engine.uci_loop()
     elif args.self_play > 0:
