@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami V.1.17.6 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami V.1.17.7 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (credit @Tonmoy-KS, do not claim as own)
 Coding Language: Python 3 
@@ -26,7 +26,31 @@ import torch.nn.functional as F
 import tkinter as tk
 import cProfile
 import pstats
+import pyttsx3
 from typing import List, Dict, Optional
+
+# Initialize the TTS engine
+try:
+    tts_engine = pyttsx3.init()
+    # Optional: Adjust voice properties
+    tts_engine.setProperty('rate', 175)  # Speed of speech
+    tts_available = True
+    print("INFO: TTS engine initialized successfully.")
+except Exception as e:
+    print(f"WARNING: pyttsx3 initialization failed: {e}. Voice output will be disabled.")
+    tts_available = False
+
+# Function to speak text
+def speak_text(text: str):
+    """Uses pyttsx3 to speak the given text."""
+    if tts_available and text:
+        try:
+            # Add text to the speech queue
+            tts_engine.say(text)
+            # Process the queue and speak
+            tts_engine.runAndWait()
+        except Exception as e:
+            logging.error(f"TTS failed to speak: {e}")
 
 # Configure logging statistics
 logging.basicConfig(
@@ -128,7 +152,7 @@ def get_llm_explanation(context: LLMContext) -> str:
 # Configuration
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.17.6 - Gen 2 Edition"
+    ENGINE_NAME = "Shinigami V.1.17.8 - Gen 2 Edition"
     PIECE_VALUES = {
         chess.PAWN: 100,
         chess.KNIGHT: 520,
@@ -1457,7 +1481,7 @@ class ShinigamiEngine:
 
     def select_difficulty(self) -> str:
         """Select AI difficulty with confirmation for extreme modes and safeguard for The Big Bang."""
-        print("Select AI difficulty: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode, 6) Masochist, 7) Dialing Satan's Number, 8) The Big Bang")
+        print("Select your Poison, AKA AI difficulty: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode, 6) Masochist, 7) Dialing Satan's Number, 8) The Big Bang")
         while True:
             difficulty_input = input("Enter 1, 2, 3, 4, 5, 6, 7, or 8: ").strip()
             difficulties = {
@@ -1490,10 +1514,11 @@ class ShinigamiEngine:
 
 
     def play_chess_with_ai(self, ai_color: chess.Color):
-        """Main game loop for human vs. AI play in console mode."""
+        """Main game loop for human vs. AI play in console mode with LLM and TTS."""
         board = chess.Board()
         difficulty = self.select_difficulty()
         depth = self.config.DEPTHS[difficulty]
+
         print(f"NNUE: {'Enabled' if self.config.USE_NNUE else 'Disabled'}")
         print(f"Syzygy Tablebases: {'Loaded' if self.tablebase else 'Not Loaded'}")
         print(f"Opening Book: {'Loaded' if self.opening_book else 'Not Loaded'}")
@@ -1506,109 +1531,119 @@ class ShinigamiEngine:
             print(f"\n{board}\n")
             player = "White" if board.turn == chess.WHITE else "Black"
             print(f"{player}'s turn. Don't bore me.")
-            
+
+            # puzzles 
             if difficulty == "puzzle":
+                # This block handles the self-contained puzzle mode.
                 puzzle_move, puzzle_task = self.generate_puzzle(board)
-                if puzzle_move:
+                if not puzzle_move:
+                    print("No more puzzles available. Switching to medium mode.")
+                    speak_text("No more puzzles available. Switching to medium mode.")
+                    difficulty = "medium"
+                    depth = self.config.DEPTHS["medium"]
+                else:
                     print(f"Puzzle Mode: {puzzle_task}\n")
+                    speak_text(puzzle_task)
+                    # Loop for the current puzzle
                     while True:
                         move_input = input("Your move (or 'retry'/'exit'): ").strip().lower()
                         if move_input == "exit":
                             logging.info("Player exited puzzle mode")
+                            speak_text("Leaving the puzzle. Coward.")
                             return
                         elif move_input == "retry":
-                            # Reset board to puzzle start FEN to retry
-                            board.set_fen(self.puzzle_database[self.puzzle_database.index(
-                                next(p for p in self.puzzle_database if p['move'] == puzzle_move.uci())
-                            )]['fen'])
+                            board.set_fen(self.puzzle_database[next(i for i, p in enumerate(self.puzzle_database) if p['move'] == puzzle_move.uci())]['fen'])
                             print(f"Retrying puzzle: {puzzle_task}\n")
-                            continue
+                            speak_text("Fine. Try it again.")
+                            break # Breaks inner puzzle loop to reprint the board
+                        
                         try:
                             move = board.parse_san(move_input)
                             if move == puzzle_move:
                                 print("Puzzle solved! Want another? (y/n)")
+                                speak_text("Puzzle solved! Impressive... for a human.")
                                 logging.info("Puzzle solved correctly")
-                                if input().strip().lower() == 'y':
-                                    board = chess.Board() # Reset board for new puzzle
-                                    # Ensure a *new* random puzzle is picked
-                                    old_puzzle = puzzle
-                                    while puzzle == old_puzzle and len(self.puzzle_database) > 1:
-                                        puzzle_move, puzzle_task = self.generate_puzzle(board)
-                                    if not puzzle_move:
-                                        print("No more puzzles available. Switching to medium mode.")
-                                        difficulty = "medium"
-                                        depth = self.config.DEPTHS["medium"]
-                                        break
-                                    print(f"\nNew Puzzle: {puzzle_task}\n")
-                                else:
+                                if input().strip().lower() != 'y':
                                     return
+                                # If yes, the outer loop will generate a new puzzle
+                                break 
                             else:
-                                print("Wrong move! Try again or 'retry'.")
+                                wrong_move_text = "Wrong move! Try again or 'retry'."
+                                print(wrong_move_text)
+                                speak_text(wrong_move_text)
                                 logging.warning(f"Incorrect puzzle move: {move_input}")
                         except ValueError:
-                            print(random.choice(self.config.TRASH_TALK["invalid"]))
-                            continue
-                else:
-                    print("No puzzles available. Switching to medium mode.")
-                    difficulty = "medium"
-                    depth = self.config.DEPTHS["medium"]
+                            invalid_text = random.choice(self.config.TRASH_TALK["invalid"])
+                            print(invalid_text)
+                            speak_text(invalid_text)
+                    continue # Continue to the next iteration of the main game loop
 
+            # Shinigami's Turn
             if board.turn == ai_color:
                 print("Shinigami is plotting your demise...")
                 move, score = self.get_best_move(board, depth, difficulty)
+                
                 if move:
-                    # Capture opponent's move from the board's history before our move
                     opponent_move = board.peek() if board.move_stack else None
-                    
                     board.push(move)
                     logging.info(f"AI move: {move}")
 
-                    # Determine the source of evaluation for the LLM context
+                    # Determine the source of evaluation for the LLM
                     eval_source = "Classical Evaluation"
-                    if self.config.USE_NNUE and self.nnue:
-                        eval_source = "NNUE"
-                    if self.tablebase and len(board.piece_map()) <= 7:
-                        eval_source = "Syzygy Tablebase"
+                    if self.config.USE_NNUE and self.nnue: eval_source = "NNUE"
+                    if self.tablebase and len(board.piece_map()) <= 7: eval_source = "Syzygy Tablebase"
 
                     # Create context and get explanation from the LLM
                     llm_context = LLMContext(
-                        fen=board.fen(),
-                        my_move=move,
-                        opponent_move=opponent_move,
-                        opponent_name="Human",
-                        eval_score=score,
-                        nodes_searched=self.nodes_searched,
-                        eval_source=eval_source
+                        fen=board.fen(), my_move=move, opponent_move=opponent_move,
+                        opponent_name="Human", eval_score=score,
+                        nodes_searched=self.nodes_searched, eval_source=eval_source
                     )
                     explanation = get_llm_explanation(llm_context)
                     print(f"\n[Shinigami]: {explanation}\n")
+                    speak_text(explanation) # Speak the LLM's thoughts
                     
+                    # Speak additional trash talk for checks or captures
                     if board.is_check():
-                        print(random.choice(self.config.TRASH_TALK["check"]))
+                        trash_talk = random.choice(self.config.TRASH_TALK["check"])
+                        print(trash_talk)
+                        speak_text(trash_talk)
                     elif board.is_capture(move):
-                        print(random.choice(self.config.TRASH_TALK["capture"]))
+                        trash_talk = random.choice(self.config.TRASH_TALK["capture"])
+                        print(trash_talk)
+                        speak_text(trash_talk)
+
+            # player's Turn
             else:
                 move_input = input("Your move: ").strip().lower()
                 if move_input == "quit":
+                    speak_text("Running away? Wise.")
                     break
                 try:
                     move = board.parse_san(move_input)
                     board.push(move)
                     self.training_module.learn_from_opponent(board, move, board.result() if board.is_game_over() else "ongoing")
                 except ValueError:
-                    print(random.choice(self.config.TRASH_TALK["invalid"]))
+                    invalid_text = random.choice(self.config.TRASH_TALK["invalid"])
+                    print(invalid_text)
+                    speak_text(invalid_text)
                     logging.warning(f"Invalid move input: {move_input}")
 
+        # End of Game
         result = board.result()
+        end_talk = ""
         if result == "1-0":
-            print(random.choice(self.config.TRASH_TALK["loss"]))
+            end_talk = random.choice(self.config.TRASH_TALK["loss"])
             logging.info("Game ended: White wins")
         elif result == "0-1":
-            print(random.choice(self.config.TRASH_TALK["win"]))
+            end_talk = random.choice(self.config.TRASH_TALK["win"])
             logging.info("Game ended: Black wins")
         else:
-            print(random.choice(self.config.TRASH_TALK["draw"]))
+            end_talk = random.choice(self.config.TRASH_TALK["draw"])
             logging.info("Game ended: Draw")
+        
+        print(end_talk)
+        speak_text(end_talk) # Announce the final result
 
     def uci_loop(self):
         """Handle UCI protocol commands for integration with chess GUIs."""
