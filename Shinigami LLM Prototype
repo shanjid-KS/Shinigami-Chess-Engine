@@ -1,0 +1,271 @@
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+import math
+
+# ----------------- Hyperparameters -----------------
+BATCH_SIZE = 64       # How many independent sequences to process in parallel
+BLOCK_SIZE = 256      # What is the maximum context length for predictions?
+MAX_ITERS = 5000      # How many training steps
+EVAL_INTERVAL = 500   # How often to evaluate and report loss
+LEARNING_RATE = 3e-4  # Maximum learning rate
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu' # Use GPU if available
+EVAL_ITERS = 200
+N_EMBED = 384         # Embedding dimension
+N_HEAD = 6            # Number of self-attention heads
+N_LAYER = 6           # Number of transformer blocks
+DROPOUT = 0.2         # Dropout rate
+CLIP_GRAD = 1.0       # Gradient clipping value
+# Learning rate schedule
+WARMUP_ITERS = 200
+LR_DECAY_ITERS = MAX_ITERS
+MIN_LR = 1e-5
+# ----------------------------------------------------
+
+print(f"Using device: {DEVICE}")
+
+# Set a manual seed for reproducibility
+torch.manual_seed(1337)
+
+# --- Data Loading ---
+try:
+    with open('input.txt', 'r', encoding='utf-8') as f:
+        text = f.read()
+except FileNotFoundError:
+    print("Error: 'input.txt' not found.")
+    print("Please download it from: https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt")
+    exit()
+
+# Get all unique characters in the text
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+
+# Create a mapping from characters to integers (and vice versa)
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+encode = lambda s: [stoi[c] for c in s] # encoder: take a string, output a list of integers
+decode = lambda l: ''.join([itos[i] for i in l]) # decoder: take a list of integers
+
+# Encode the entire dataset and store it in a torch.Tensor
+data = torch.tensor(encode(text), dtype=torch.long)
+
+# --- Train and validation splits ---
+n = int(0.9 * len(data))
+train_data = data[:n]
+val_data = data[n:]
+
+# --- Data loading function ---
+def get_batch(split):
+    # Generate a small batch of data of inputs x and targets y
+    data = train_data if split == 'train' else val_data
+    # Generate random starting points for our batches
+    ix = torch.randint(len(data) - BLOCK_SIZE, (BATCH_SIZE,))
+    # Stack the sequences into a batch
+    x = torch.stack([data[i:i+BLOCK_SIZE] for i in ix])
+    y = torch.stack([data[i+1:i+BLOCK_SIZE+1] for i in ix])
+    # Move data to the selected device (GPU or CPU)
+    x, y = x.to(DEVICE), y.to(DEVICE)
+    return x, y
+
+@torch.no_grad()
+def estimate_loss():
+    """ Helper function to estimate the loss on train and validation sets. """
+    out = {}
+    model.eval() # Set the model to evaluation mode
+    for split in ['train', 'val']:
+        losses = torch.zeros(EVAL_ITERS)
+        for k in range(EVAL_ITERS):
+            X, Y = get_batch(split)
+            logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
+    model.train() # Set the model back to training mode
+    return out
+
+# --- Learning Rate Scheduler ---
+def get_lr(it):
+    # 1) linear warmup for warmup_iters steps
+    if it < WARMUP_ITERS:
+        return LEARNING_RATE * it / WARMUP_ITERS
+    # 2) if it > lr_decay_iters, return min learning rate
+    if it > LR_DECAY_ITERS:
+        return MIN_LR
+    # 3) in between, use cosine decay down to min learning rate
+    decay_ratio = (it - WARMUP_ITERS) / (LR_DECAY_ITERS - WARMUP_ITERS)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
+    return MIN_LR + coeff * (LEARNING_RATE - MIN_LR)
+
+# ----------------- Model Definition -----------------
+
+class RMSNorm(nn.Module):
+    """ Root Mean Square Normalization. """
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+
+    def _norm(self, x):
+        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
+
+    def forward(self, x):
+        output = self._norm(x.float()).type_as(x)
+        return output * self.weight
+
+class MultiHeadAttention(nn.Module):
+    """ Multiple heads of self-attention in parallel. """
+    def __init__(self, num_heads, head_size):
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_size = head_size
+        self.n_embed = num_heads * head_size
+        
+        self.qkv = nn.Linear(self.n_embed, 3 * self.n_embed, bias=False)
+        self.proj = nn.Linear(self.n_embed, self.n_embed)
+        self.dropout = nn.Dropout(DROPOUT)
+
+    def forward(self, x):
+        B, T, C = x.shape
+        q, k, v = self.qkv(x).split(self.n_embed, dim=2)
+        
+        q = q.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # (B, nh, T, hs)
+        k = k.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # (B, nh, T, hs)
+        v = v.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # (B, nh, T, hs)
+        
+        # Use PyTorch's optimized scaled dot-product attention
+        # This will use Flash Attention if available
+        out = F.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=DROPOUT if self.training else 0.0)
+        
+        out = out.transpose(1, 2).contiguous().view(B, T, C)
+        out = self.proj(out)
+        return out
+
+class FeedForward(nn.Module):
+    """ A simple linear layer followed by a non-linearity. """
+    def __init__(self, n_embed):
+        super().__init__()
+        # Using SwiGLU activation, as seen in modern LLMs like Llama
+        self.w1 = nn.Linear(n_embed, 2 * n_embed)
+        self.w2 = nn.Linear(n_embed, 2 * n_embed)
+        self.w3 = nn.Linear(2 * n_embed, n_embed) # Projection layer
+        self.dropout = nn.Dropout(DROPOUT)
+
+    def forward(self, x):
+        # Swish-Gated Linear Unit
+        return self.dropout(self.w3(F.silu(self.w1(x)) * self.w2(x)))
+
+class TransformerBlock(nn.Module):
+    """ Transformer block: communication followed by computation. """
+    def __init__(self, n_embed, n_head):
+        super().__init__()
+        head_size = n_embed // n_head
+        self.sa = MultiHeadAttention(n_head, head_size)
+        self.ffwd = FeedForward(n_embed)
+        self.ln1 = RMSNorm(n_embed)
+        self.ln2 = RMSNorm(n_embed)
+
+    def forward(self, x):
+        x = x + self.sa(self.ln1(x))
+        x = x + self.ffwd(self.ln2(x))
+        return x
+
+class LanguageModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.token_embedding_table = nn.Embedding(vocab_size, N_EMBED)
+        self.position_embedding_table = nn.Embedding(BLOCK_SIZE, N_EMBED)
+        self.blocks = nn.Sequential(*[TransformerBlock(N_EMBED, n_head=N_HEAD) for _ in range(N_LAYER)])
+        self.ln_f = RMSNorm(N_EMBED) # Final layer norm
+        self.lm_head = nn.Linear(N_EMBED, vocab_size)
+
+        # Apply weight initialization
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def forward(self, idx, targets=None):
+        B, T = idx.shape
+        
+        tok_emb = self.token_embedding_table(idx) # (B, T, C=N_EMBED)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=DEVICE)) # (T, C)
+        x = tok_emb + pos_emb # (B, T, C)
+        x = self.blocks(x) # (B, T, C)
+        x = self.ln_f(x) # (B, T, C)
+        logits = self.lm_head(x) # (B, T, vocab_size)
+
+        if targets is None:
+            loss = None
+        else:
+            B, T, C = logits.shape
+            logits = logits.view(B*T, C)
+            targets = targets.view(B*T)
+            loss = F.cross_entropy(logits, targets)
+
+        return logits, loss
+
+    def generate(self, idx, max_new_tokens):
+        # idx is (B, T) array of indices in the current context
+        for _ in range(max_new_tokens):
+            # Crop idx to the last BLOCK_SIZE tokens
+            idx_cond = idx[:, -BLOCK_SIZE:]
+            # Get the predictions
+            logits, loss = self(idx_cond)
+            # Focus only on the last time step
+            logits = logits[:, -1, :] # Becomes (B, C)
+            # Apply softmax to get probabilities
+            probs = F.softmax(logits, dim=-1) # (B, C)
+            # Sample from the distribution
+            idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+            # Append sampled index to the running sequence
+            idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+        return idx
+
+# ----------------- Training the Model -----------------
+model = LanguageModel()
+m = model.to(DEVICE)
+
+# Print the number of parameters in the model
+print(f"{sum(p.numel() for p in m.parameters())/1e6:.2f}M parameters")
+
+# Create a PyTorch optimizer
+optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+
+print("\nStarting training...")
+for iter in range(MAX_ITERS):
+    # Every once in a while, evaluate the loss on train and val sets
+    if iter % EVAL_INTERVAL == 0 or iter == MAX_ITERS - 1:
+        losses = estimate_loss()
+        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+    # Determine and set the learning rate for this iteration
+    lr = get_lr(iter)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+    # Sample a batch of data
+    xb, yb = get_batch('train')
+
+    # Evaluate the loss
+    logits, loss = model(xb, yb)
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    
+    # Clip gradients to prevent exploding gradients
+    torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_GRAD)
+    
+    optimizer.step()
+
+print("Training finished.\n")
+
+# ----------------- Generate Text from the Model -----------------
+print("Generating text...")
+# Start generation with a single newline character to prompt the model
+context = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
+generated_sequence = m.generate(context, max_new_tokens=1000)[0].tolist()
+print(decode(generated_sequence))
