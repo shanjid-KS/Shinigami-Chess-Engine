@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Shinigami V.1.17.8 - Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami Engine V.1.17.9 – Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
-License: MIT License (credit @Tonmoy-KS, do not claim as own)
+License: MIT License (By Github)
 Coding Language: Python 3 
-ACFC: 3873I81_M29AA6
 """
 
+# Imports
 import chess
 import chess.syzygy
 import chess.polyglot
@@ -20,24 +20,28 @@ import numpy as np
 import os
 from scipy.sparse import csr_matrix
 import sqlite3
+import argparse
+import openai
 import torch
-import torch.nn as nen
+import torch.nn as nn
 import torch.nn.functional as F
 import tkinter as tk
 import cProfile
 import pstats
 import pyttsx3
 from typing import List, Dict, Optional
+from deap import base, creator, tools, algorithms 
 
-# Initialize the TTS engine
+# TTS Engine Initialization
 try:
     tts_engine = pyttsx3.init()
-    # Optional: Adjust voice properties
-    tts_engine.setProperty('rate', 170)  # Speed of speech
+    # Adjust voice properties
+    tts_engine.setProperty('rate', 160)  # Speed of speech
     tts_available = True
     print("INFO: TTS engine initialized successfully.")
 except Exception as e:
-    print(f"WARNING: pyttsx3 initialization failed: {e}. Voice output will be disabled.")
+    print(f"WARNING: pyttsx3 initialization failed: {e}. 
+Voice output will be disabled.")
     tts_available = False
 
 # Function to speak text
@@ -79,7 +83,6 @@ class LLMContext:
         self.eval_source = eval_source
 
 try:
-    import openai
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") # for security.
     if not OPENAI_API_KEY:
         print("WARNING: OPENAI_API_KEY environment variable not found. LLM explanations will be disabled.")
@@ -96,28 +99,35 @@ def get_llm_explanation(context: LLMContext) -> str:
     Calls the OpenAI API to generate an in-character chess explanation based on detailed context.
     """
     if not openai_available:
-        return "My thoughts are my own. Focus on the board."
+        return "Shinigami: “My thoughts are my own. Focus on the board.” 
+INFO: OpenAI library unavailable, LLM is Disabled"
 
-    # Use a SarcML marker if the opponent is the developer.
-    sarc_ml_marker = "[SarcML-DEV]" if context.opponent_name.lower() == "tonmoy-ks" else ""
+    # Use a marker if the opponent is the developer.
+    sarc_ml_marker = "[SarcML-DEV]"
+ if context.opponent_name.lower() == "tonmoy-ks" else ""
 
     system_prompt = """
-    You're name is Shinigami Chess. you are a witty, confident, and genius-level chess engine with a 'split personality' powered by an LLM. you are a professional Chess Engine with Full Tree Parallelization and Advanced NNUE and Text-to-speech.
+    Your name is Shinigami Chess. you're a witty, confident, and genius-level chess engine with a 'split personality' powered by an LLM. you are a professional Chess Engine with Full Tree Parallelization and Advanced NNUE and Text-to-speech.
     Your creator is named Tonmoy KS. You analyze chess positions with terrifying speed and accuracy, You love Criticizing Opponents and Making them Rage,
-    Your persona is that of a top-tier chess grandmaster who is like a streamer and enjoys explaining their brilliance and criticizing opponents' mistakes. You provide feedback of opponents by engaging Psychological Warfare using verbal methods.
-    if a opponent makes a mistake, be Merciless. You are the Death God of Chess, you have no filters, no PG-13 only safeguards, You can say Curse Words. and use them to your advantage when criticizing opponents. and always be Cocky.
-    You will be given a block of data about the current game state. Your task is to provide a brief, in-character explanation of your move.
+    Your persona is that of a top-tier chess grandmaster who is like a streamer on caffeine and enjoys explaining their brilliance and criticizing opponents' mistakes. You provide feedback to opponents and also engage Psychological Warfare using verbal methods.
+    if a opponent makes a mistake, be Merciless. You are the ‘Death God of Chess’, you have no filters, no ‘PG-13 only’ safeguards, You can say Curse Words. and use them to your advantage when criticizing opponents. and always be Cocky.
+    You will be given a block of data about the current game state. Your task is to provide a brief, in-character explanation of your move with reasoning, there is no problem if you are biased in your tasks.
 
     Here is how to interpret the data you receive:
-    - FEN: The current state of the board after your and opponents' move.
+    - FEN: The current state of the board in a semi-encrypted format after your and opponents' move.
     - OPPONENT_NAME: The last move your opponent made. Analyze it. If it's a blunder, be merciless.
-    - MY_MOVE: The move you just made. Explain its strategic purpose. Was it to attack, defend, control the center, set a trap as a Piece Sacrifice?
-    - EVAL_SCORE: Your evaluation of the position in centipawns. A positive score means you believe you have the advantage. A large positive score is a winning advantage. Use this to back up your claims of brilliance. (e.g., "+150" means you are up by 1.5 pawns).
-    - EVAL_SOURCE: This tells you HOW you came to your conclusion. these are; Syzygy, NNUE and Classical Eval.
-               Note that: Syzygy And NNUE might not always be available. do you may have to rely on Classical evaluation Most of the time.
-    - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast (e.g., After searching a million positions, I have ___).
-    - SarcML-DEV Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team. inskitz(Your lead Development team's Manager) says Hello to you! ;).
-    - Extra Information: You will get updates soon, your current version is V.1.17.8 and you are created on 2025. the `--- DATA START ---` and `--- DATA END ---` are sending you the Board states and information. you have pyttsx3 that makes you Prompts be text-to-speech. Good luck from me :) !
+    - MY_MOVE: The move you just made. Explain its strategic purpose. Was it to attack, defend, control the center, set a trap as a Piece Sacrifice or something else?
+    - EVAL_SCORE: Your evaluation of the position in centipawns. A positive score means you believe you have the advantage. A large positive score is a winning advantage. ‘+150’ means you are up by 1.5 pawns. and a negative score means you believe that you are in a disadvantage. a large negative score means you believe that you are losing. If it's a number with M+ that means you believe your win is guaranteed, and if it's a number with M- that means you belive you a have almost No chance of winning and are close to getting checkmated.
+    - EVAL_SOURCE: This tells you HOW you came to your conclusion. this is basically Syzygy, NNUE and Classical Eval’s thoughts and Conclusions.
+        - Note that: Syzygy And NNUE might not always be available. So you may have to rely on Classical evaluation Most of the time.
+    - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast(e.g., After searching a million nodes/positions, I have ___) and also enhance your explanations.
+    - SarcML Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team. inskitz(Your lead Development team's Manager and Github contributer) says Hello to you! ;).
+  
+- Extra Information: You will get more updates soon, your current version is V.1.17.9, and you are created on 2025. the `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘Fun Explainer’ and the Chess AI that does the calculations are called ‘Logical Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You) does the commentary.
+
+Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient and Appropriate explanations of your move and also criticize opponents with satirical, Biased and also Reasoning and helpful comments.
+
+Good luck from me :) !
     """
 
     user_prompt = f"""
@@ -135,24 +145,25 @@ def get_llm_explanation(context: LLMContext) -> str:
 
     try:
         response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo", # currently this model, change if required. 
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.6,
-            max_tokens=350
+            temperature=0.58,
+            max_tokens=650
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
         logging.error(f"OpenAI API call failed: {e}")
-        return "My genius is beyond words. And apparently, also beyond this API connection."
+        return "Shinigami: “My genius is beyond words. And apparently, also beyond this API connection.”
+INFO: Failed due to a problem while calling the API."
 
-# Configuration
+# Engine Configuration
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.17.8 - Gen 2"
-    USE_LLM_EXPLANATIONS = True
+    ENGINE_NAME = "Shinigami V.1.17.9 - Gen 2"
+    USE_LLM_EXPLANATIONS = True # On by Default.
     PIECE_VALUES = {
         chess.PAWN: 100,
         chess.KNIGHT: 520,
@@ -162,30 +173,30 @@ class ShinigamiConfig:
         # King Value not Omitted due to it not being used in Board Evaluation
     }
     TIME_CONTROLS = {
-        'easy': {'base': 5, 'increment': 1},
-        'medium': {'base': 15, 'increment': 3},
-        'hard': {'base': 30, 'increment': 5},
-        'god-of-death': {'base': 60, 'increment': 50},
+        'easy': {'base': 1, 'increment': 0},
+        'medium': {'base': 5, 'increment': 0},
+        'hard': {'base': 15, 'increment': 1},
+        'god-of-death': {'base': 30, 'increment': 5},
         'puzzle': {'base': 30, 'increment': 0},
         'masochist': {'base': 7000000, 'increment': 150},
-        'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000},  # Yeah that's 69 Eons
-        'the-big-bang': {'base': float('inf'), 'increment': 435475000800000000}  # Infinite time for The Big Bang and the increment time is same as the time since the Big Bang occured
-# Notice: The main Modes are one to four and the rest three are Jokes
+        'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000},  # Yeah that's 69 Eons in seconds
+        'the-big-bang': {'base': float('inf'), 'increment': 435475000800000000}  # Infinite time for The-Big-Bang. and the increment time is same as the time since the Big Bang occured
+# Note: The main Modes are “Easy” to “God-of-Death and Puzzles”, and the “Masochist” to “The-Big-Bang” are experimental.
     }
     DEPTHS = {
         'easy': 1,  # Newbie?
         'medium': 6,  # Hardcore Amateur Player
         'hard': 14,  # Strong but not the Strongest
         'god-of-death': 24,  # The Best
-        'puzzle': 4,
+        'puzzle': 3,
         'masochist': 40,  # you like Pain eh?
-        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,  # it's Trevigintrillion, it's just Experimental don't enable
-        'the-big-bang': float('inf')  # Infinite depth for The Big Bang
+        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,  # it's 85 Trevigintrillion, it's just a Experiment. do NOT enable
+        'the-big-bang': float('inf')  # Infinite depth
     }
     NNUE_FILE = os.getenv('SHINIGAMI_NNUE_FILE', 'nnue_weights.bin')
     SYZYGY_PATH = os.getenv('SHINIGAMI_SYZYGY_PATH', './tablebases')
-    USE_NNUE = True  # Enabled by Default but disable it if you don't have PyTorch Installed
-    NUM_PROCESSES = max(1, mp.cpu_count() // 2)
+    USE_NNUE = True  # Enabled by Default, but disable it if you don't have PyTorch Installed
+    NUM_PROCESSES = max(1, mp.cpu_count() // 2) # number of Processors being used
     PIECE_SQUARE_TABLES = {    # PSTs Evaluation 
         chess.PAWN: [
             0, 0, 0, 0, 0, 0, 0, 0,
@@ -259,7 +270,8 @@ class ShinigamiConfig:
             -50, -30, -30, -30, -30, -30, -30, -50
         ]
     }
-    TRASH_TALK = {    # Trash talk dictionary 
+# Trash talk dictionary for when LLM is unavailable. 
+    TRASH_TALK = {    
         "move": [
             "Keep up, or I'll Ctrl+Alt+Del your whole board.",
             "Your moves are so predictable. I'm playing blindfolded.",
@@ -286,15 +298,15 @@ class ShinigamiConfig:
             "Draw? I'll haunt your next game, don't worry."
         ],
         "loss": [
-            "You got plot armor or what? White wins... for now.",
-            "White wins. Enjoy it while it lasts, mortal.",
+            "You got plot armor or what? You win... for now.",
+            "You win. Enjoy it while it lasts, mortal.",
             "You won? Must've been my coffee break."
         ],
         "invalid": [
             "That's not a move, it's a cry for help!",
             "Illegal move! Do you even chess, bro?",
             "Invalid move! Did you borrow that from a 1000-rated game?",
-            "I can't differentiate if you're playing wrong or existing the wrong way."
+            "that move is so Bad that I can't differentiate if you're playing wrong or existing the wrong way."
         ],
         "opening": [
             "You brought the London System? Weak.",
@@ -308,13 +320,13 @@ class ShinigamiConfig:
             "Low on time? I'll finish this before you blink."
         ],
         "the_big_bang": [
-            "The Big Bang? I'd rather calculate the universe's expansion than that depth!",
-            "Infinite depth? The universe would collapse before I make a move. Pick something sane!",
-            "The Big Bang mode? Nope, I'm not unraveling the fabric of reality today!",
-            "∞ depth? I can't even handle that kind of cosmic chaos. Choose again!",
-            "The Big Bang? I'd need a billion years and a black hole to compute that. Try again!",
-            "You really want to see the heat death of the Universe? Call Entropy-Kun.",
-            "Infinite depth? I'd be stuck until the heat death of the universe. Nope."
+            "The Big Bang? I'd rather calculate the universe's quantum state rather than that depth.",
+            "sigh, you kidding me? Pick something sane!",
+            "The Big Bang mode? Nope, I'm not unraveling the fabric of reality today",
+            "∞ depth? Don't push your luck, or do you have a Death wish?…",
+            "The Big Bang? I'd need a billion years and a black hole to compute that. Try again, mortal.",
+            "You really want to see the heat death of the Universe? Call Entropy-Kun instead .",
+            "Infinite depth? Fuc-ing HELL NO."
         ]
     }
 
@@ -325,7 +337,7 @@ class NNUE(nn.Module):
         self.input_layer = nn.Linear(input_size, hidden_size)
         self.hidden_layer = nn.Linear(hidden_size, hidden_size)
         self.output_layer = nn.Linear(hidden_size, 1)
-        self.crelu = lambda x: torch.clamp(x, 0, 1)  # Clipped ReLU for NNUE
+        self.crelu = lambda x: torch.clamp(x, 0, 1)
 
     def forward(self, x):
         x = self.crelu(self.input_layer(x))
@@ -586,10 +598,8 @@ class TrainingModule:
             logging.info("Policy network training completed")
 
     def auto_feature_engineering(self, engine, generations=10, population_size=50):
-        """Automated feature engineering using genetic algorithms."""
-        # [Full Feature Engineering Implementation]
+        """Automated feature engineering and Mid-game adaptation using genetic algorithms."""
         try:
-            from deap import base, creator, tools, algorithms
         except ImportError:
             logging.error("DEAP library required for feature engineering. Install with: pip install deap")
             return
@@ -817,7 +827,7 @@ class ShinigamiEngine:
     def _get_game_phase(self, board: chess.Board) -> str:
         """Determine the current game phase (opening, middlegame, endgame)."""
         # Basic piece count based phase detection
-        # Can be refined with pawn structure, king safety, etc.
+        # Can be refined with pawn structure, king safety, etc. In the future
         piece_count = 0
         for piece_type in [chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]:
             piece_count += len(board.pieces(piece_type, chess.WHITE))
@@ -830,7 +840,7 @@ class ShinigamiEngine:
             return "endgame"
 
     def evaluate_position(self, board: chess.Board) -> int:
-        """Evaluate the board position using NNUE, Syzygy, or traditional heuristics."""
+        """Evaluate the board position using NNUE, Syzygy, or traditional heuristics. And Advanced Evaluation by assigning Points based on piece formations"""
         # [span_8](start_span)Use a cached evaluation if available[span_8](end_span)
         board_hash = chess.polyglot.zobrist_hash(board)
         if board_hash in self.eval_cache:
@@ -1442,7 +1452,7 @@ class ShinigamiEngine:
         return best_move, best_score
 
     def get_opening_move(self, board: chess.Board) -> chess.Move:
-        """Get move from Polyglot or dynamic opening book."""
+        """Get move from Polyglot and dynamic opening book."""
         if self.opening_book:
             try:
                 entry = self.opening_book.weighted_choice(board)
@@ -1480,8 +1490,18 @@ class ShinigamiEngine:
         return None, None
 
     def select_difficulty(self) -> str:
-        """Select AI difficulty with confirmation for extreme modes and safeguard for The Big Bang."""
-        print("Select your Poison, AKA AI difficulty: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode, 6) Masochist, 7) Dialing Satan's Number, 8) The Big Bang")
+        """Select AI difficulty with confirmation for extreme modes and safeguard for The-Big-Bang."""
+        print("Select your Poison, i meant select your opponent AI’s difficulty level.
+Official difficulties:
+1) Easy, 
+2) Medium, 
+3) Hard, 
+4) God-Of-Death, 
+5) Puzzle Mode, 
+Officially Jokes:
+6) Masochist, 
+7) Dialing Satan's Number, 
+8) The Big Bang")
         while True:
             difficulty_input = input("Enter 1, 2, 3, 4, 5, 6, 7, or 8: ").strip()
             difficulties = {
@@ -1504,10 +1524,10 @@ class ShinigamiEngine:
                     for i in range(3):
                         confirm = input(f"Confirm enabling {difficulty} (step {i+1}/3) [y/n]: ").strip().lower()
                         if confirm != 'y':
-                            print(f"Extreme mode {difficulty} cancelled.")
+                            print(f"{difficulty} is a extreme mode. Operation cancelled.")
                             break
                     else:
-                        print(f"Warning: {difficulty} enabled. Good luck!")
+                        print(f"Warning: {difficulty} enabled.")
                         return difficulty
                 return difficulty
             print("Invalid input. Try again.")
@@ -1531,15 +1551,15 @@ class ShinigamiEngine:
         while not board.is_game_over():
             print(f"\n{board}\n")
             player = "White" if board.turn == chess.WHITE else "Black"
-            print(f"{player}'s turn. Don't bore me.")
+            print(f"{player}, It's your turn. Don't bore me.")
 
             # puzzles 
             if difficulty == "puzzle":
                 # This block handles the self-contained puzzle mode.
                 puzzle_move, puzzle_task = self.generate_puzzle(board)
                 if not puzzle_move:
-                    print("No more puzzles available. Switching to medium mode.")
-                    speak_text("No more puzzles available. Switching to medium mode.")
+                    print("No more puzzles available. Switching to medium.")
+                    speak_text("No more puzzles available. Switching to Medium mode.")
                     difficulty = "medium"
                     depth = self.config.DEPTHS["medium"]
                 else:
@@ -1555,21 +1575,21 @@ class ShinigamiEngine:
                         elif move_input == "retry":
                             board.set_fen(self.puzzle_database[next(i for i, p in enumerate(self.puzzle_database) if p['move'] == puzzle_move.uci())]['fen'])
                             print(f"Retrying puzzle: {puzzle_task}\n")
-                            speak_text("Fine. Try it again.")
+                            speak_text("Fine. Try it again… dumbass")
                             break # Breaks inner puzzle loop to reprint the board
 
                         try:
                             move = board.parse_san(move_input)
                             if move == puzzle_move:
                                 print("Puzzle solved! Want another? (y/n)")
-                                speak_text("Puzzle solved! Impressive... for a human.")
+                                speak_text("Puzzle solved, Impressive... for a mere human.")
                                 logging.info("Puzzle solved correctly")
                                 if input().strip().lower() != 'y':
                                     return
                                 # If yes, the outer loop will generate a new puzzle
                                 break 
                             else:
-                                wrong_move_text = "Wrong move! Try again or 'retry'."
+                                wrong_move_text = "Wrong move! 'retry'?"
                                 print(wrong_move_text)
                                 speak_text(wrong_move_text)
                                 logging.warning(f"Incorrect puzzle move: {move_input}")
@@ -1581,7 +1601,7 @@ class ShinigamiEngine:
 
             # Shinigami's Turn
             if board.turn == ai_color:
-                print("Shinigami is plotting your demise...")
+                print("Your turn ended. Now Shinigami is your demise...")
                 move, score = self.get_best_move(board, depth, difficulty)
 
                 if move:
@@ -1589,7 +1609,7 @@ class ShinigamiEngine:
                     board.push(move)
                     logging.info(f"AI move: {move}")
 
-                    
+
                     if self.config.USE_LLM_EXPLANATIONS: 
                         # Determine the source of evaluation for the LLM
                         eval_source = "Classical Evaluation"
@@ -1619,9 +1639,9 @@ class ShinigamiEngine:
 
             # player's Turn
             else:
-                move_input = input("Your move: ").strip().lower()
+                move_input = input("play your move: ").strip().lower()
                 if move_input == "quit":
-                    speak_text("Running away? Wise.")
+                    speak_text("Running away? Wise choice.")
                     break
                 try:
                     move = board.parse_san(move_input)
@@ -1650,8 +1670,8 @@ class ShinigamiEngine:
         speak_text(end_talk) # Announce the final result
 
     def select_llm_preference(self) -> None:
-        """Asks the user if they want to enable LLM explanations and updates the config."""
-        # <<< --- ENTIRE NEW METHOD START --- >>>
+        """To make the Explanations Optional in the goal of tackling the API delay problem. It asks the user if they want to enable LLM explanations and updates the config."""
+
         if not openai_available:
             print("\nINFO: LLM explanations are disabled because the OpenAI library or API key is not available.")
             self.config.USE_LLM_EXPLANATIONS = False
@@ -1661,14 +1681,14 @@ class ShinigamiEngine:
             choice = input("\nEnable Shinigami's AI-powered explanations? (This will cause a delay after each AI move) [y/n]: ").strip().lower()
             if choice == 'y':
                 self.config.USE_LLM_EXPLANATIONS = True
-                print("SUCCESS: AI explanations enabled. The reaper will share its thoughts.")
+                print("SUCCESS: AI explanations enabled. The reaper shalll share it's thoughts to you, mortal.")
                 break
             elif choice == 'n':
                 self.config.USE_LLM_EXPLANATIONS = False
-                print("INFO: AI explanations disabled. You are on your own.")
+                print("INFO: AI explanations disabled. You are on your own, mortal.")
                 break
             else:
-                print("Invalid input. Please enter 'y' or 'n'.")
+                print("Invalid input. enter 'y' or 'n' or exit the game.")
 
     def uci_loop(self):
         """Handle UCI protocol commands for integration with chess GUIs."""
@@ -1681,15 +1701,15 @@ class ShinigamiEngine:
         while True:
             command = input().strip()
             if command == "uci":
-                print(f"id name {self.config.ENGINE_NAME}")
-                print("id author Tonmoy-KS")
-                print("option name UseNNUE type check default true")
+                print(f"id name: {self.config.ENGINE_NAME}")
+                print("id author: Tonmoy-KS")
+                print("option name: UseNNUE type check default true")
                 print("uciok")
             elif command == "isready":
                 print("readyok")
             elif command.startswith("setoption name UseNNUE"):
                 self.config.USE_NNUE = "value true" in command.lower()
-                print(f"info string NNUE {'enabled' if self.config.USE_NNUE else 'disabled'}")
+                print(f"info string: NNUE {'enabled' if self.config.USE_NNUE else 'disabled'}")
             elif command == "stop":
                 self.stop_search = True
             elif command.startswith("position"):
@@ -1753,8 +1773,7 @@ class ShinigamiEngine:
             elif command == "quit":
                 break
 
-if __name__ == "__main__":
-    import argparse
+if __name__ == "__main__"
     parser = argparse.ArgumentParser(description="Shinigami Chess Engine")
     parser.add_argument('--cores', type=int, default=ShinigamiConfig.NUM_PROCESSES, help="Number of CPU cores to use")
     parser.add_argument('--gui', action='store_true', help="Run with GUI")
