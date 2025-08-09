@@ -1805,4 +1805,4 @@ if __name__ == "__main__"
         gui.root.mainloop()
     else:
         # Default to playing with AI if no specific mode is chosen
-        engine.play_chess_with_ai(chess.BLACK)ss_with_ai(chess.BLACK)
+        engine.play_chess_with_ai(chess.BLACK)
