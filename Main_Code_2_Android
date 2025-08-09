@@ -1,6 +1,6 @@
-  #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
-Shinigami V.1.15.2 - Android Adaptation for Pydroid 3
+Shinigami V.1.17.8 - Android Adaptation for Pydroid 3
 Author: Tonmoy-KS
 License: MIT License (credit @Tonmoy-KS, do not claim as own)
 """
@@ -13,6 +13,8 @@ import multiprocessing as mp
 from collections import defaultdict
 import numpy as np
 import os
+
+# Optional: Polyglot, Syzygy,PyTorch, pyttsx3 for enhanced features
 try:
     import chess.polyglot
     import chess.syzygy
@@ -24,8 +26,14 @@ try:
     import torch.nn as nn
 except ImportError:
     torch = None
+try:
+    import pyttsx3
+    tts_engine = pyttsx3.init()
+    tts_engine.setProperty('rate', 160)
+    tts_available = True
+except Exception:
+    tts_available = False
 
-# Configure logging to a writable Android directory
 LOG_FILE = "/sdcard/shinigami_engine.log"
 logging.basicConfig(
     level=logging.INFO,
@@ -33,9 +41,16 @@ logging.basicConfig(
     filename=LOG_FILE
 )
 
+def speak_text(text: str):
+    if tts_available and text:
+        try:
+            tts_engine.say(text)
+            tts_engine.runAndWait()
+        except Exception:
+            pass
+
 class ShinigamiConfig:
-    """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.15.2 - Android Edition"
+    ENGINE_NAME = "Shinigami V.1.17.8 - Android Edition"
     PIECE_VALUES = {
         chess.PAWN: 150,
         chess.KNIGHT: 430,
@@ -54,17 +69,17 @@ class ShinigamiConfig:
     }
     DEPTHS = {
         'easy': 1,
-        'medium': 4,  # Reduced for mobile
-        'hard': 8,    # Reduced for mobile
-        'god-of-death': 12,  # Reduced for mobile
+        'medium': 4,
+        'hard': 8,
+        'god-of-death': 12,
         'puzzle': 4,
-        'masochist': 20,  # Reduced for mobile
-        'dialing-satan-s-number': 850,000,000,000  # this ain't changing 
+        'masochist': 40,
+        'dialing-satan-s-number': 850_000_000_000
     }
-    NNUE_FILE = '/sdcard/nnue_weights.bin'  # Android-accessible path
-    SYZYGY_PATH = '/sdcard/Tablebases'      # Android-accessible path
-    USE_NNUE = False  # Disabled by default for mobile
-    NUM_PROCESSES = min(2, max(1, mp.cpu_count() // 2))  # Limited for mobile
+    NNUE_FILE = '/sdcard/nnue_weights.bin'
+    SYZYGY_PATH = '/sdcard/Tablebases'
+    USE_NNUE = False
+    NUM_PROCESSES = min(2, max(1, mp.cpu_count() // 2))
     PIECE_SQUARE_TABLES = {
         chess.PAWN: [
             0, 0, 0, 0, 0, 0, 0, 0,
@@ -76,7 +91,17 @@ class ShinigamiConfig:
             5, 10, 10, -20, -20, 10, 10, 5,
             0, 0, 0, 0, 0, 0, 0, 0
         ],
-        # Other piece-square tables remain unchanged (omitted for brevity)
+        chess.KNIGHT: [
+            -50, -40, -30, -30, -30, -30, -40, -50,
+            -40, -20, 0, 0, 0, 0, -20, -40,
+            -30, 0, 10, 15, 15, 10, 0, -30,
+            -30, 5, 15, 20, 20, 15, 5, -30,
+            -30, 0, 15, 20, 20, 15, 0, -30,
+            -30, 5, 10, 15, 15, 10, 5, -30,
+            -40, -20, 0, 5, 5, 0, -20, -40,
+            -50, -40, -30, -30, -30, -30, -40, -50
+        ],
+        # Add other tables if desired
     }
     TRASH_TALK = {
         "move": [
@@ -126,10 +151,29 @@ class ShinigamiConfig:
         ]
     }
 
+if torch:
+    class PolicyNetwork(nn.Module):
+        """CNN Policy Network for move ordering."""
+        def __init__(self, input_channels=12, hidden_size=128, output_size=4672):
+            super().__init__()
+            self.conv1 = nn.Conv2d(input_channels, 32, 3, padding=1)
+            self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+            self.fc1 = nn.Linear(64 * 8 * 8, hidden_size)
+            self.fc2 = nn.Linear(hidden_size, output_size)
+            self.relu = nn.ReLU()
+            self.softmax = nn.Softmax(dim=-1)
+
+        def forward(self, x):
+            x = self.relu(self.conv1(x))
+            x = self.relu(self.conv2(x))
+            x = x.view(-1, 64 * 8 * 8)
+            x = self.relu(self.fc1(x))
+            x = self.fc2(x)
+            return self.softmax(x)
+
 class NNUE(nn.Module):
-    """Neural Network for position evaluation using HalfKAv2 feature set."""
-    def __init__(self, input_size=40960, hidden_size=256):  # Reduced hidden size
-        super(NNUE, self).__init__()
+    def __init__(self, input_size=40960, hidden_size=256):
+        super().__init__()
         self.input_layer = nn.Linear(input_size, hidden_size)
         self.hidden_layer = nn.Linear(hidden_size, hidden_size)
         self.output_layer = nn.Linear(hidden_size, 1)
@@ -141,7 +185,6 @@ class NNUE(nn.Module):
         return self.output_layer(x)
 
 class AdvancedNNUEEvaluator:
-    """Handles NNUE evaluation."""
     def __init__(self, nnue_file: str):
         self.input_size = 40960
         self.model = None
@@ -172,8 +215,38 @@ class AdvancedNNUEEvaluator:
                 features[idx + piece_idx * 64 + square] = 1.0
         return features
 
+class TrainingModule:
+    """Self-play and dynamic opening book (simplified for mobile)."""
+    def __init__(self):
+        self.opening_book = defaultdict(lambda: {'weight': 1.0, 'count': 0, 'wins': 0, 'losses': 0, 'draws': 0})
+
+    def self_play(self, engine, num_games=10):
+        for _ in range(num_games):
+            board = chess.Board()
+            moves = []
+            while not board.is_game_over():
+                move = engine.get_best_move(board, depth=4, difficulty="medium")
+                moves.append(move.uci())
+                board.push(move)
+            result = board.result()
+            self.update_opening_book(board, moves, result)
+
+    def update_opening_book(self, board: chess.Board, moves: list, result: str):
+        board.reset()
+        weight = 1.0 if result == '1-0' else -1.0 if result == '0-1' else 0.5
+        for move in moves[:8]:
+            key = board.fen()[:50]
+            self.opening_book[key]['weight'] += weight
+            self.opening_book[key]['count'] += 1
+            if result == '1-0':
+                self.opening_book[key]['wins'] += 1
+            elif result == '0-1':
+                self.opening_book[key]['losses'] += 1
+            else:
+                self.opening_book[key]['draws'] += 1
+            board.push_uci(move)
+
 class ShinigamiEngine:
-    """Main chess engine class for Android."""
     def __init__(self):
         self.config = ShinigamiConfig()
         self.tablebase = None
@@ -184,20 +257,26 @@ class ShinigamiEngine:
             except Exception as e:
                 logging.warning(f"Failed to load Syzygy tablebase: {e}")
         self.opening_book = None
+        self.training_module = TrainingModule()
         if chess.polyglot:
             try:
                 self.opening_book = chess.polyglot.open_reader("/sdcard/book.bin")
                 logging.info("Loaded Polyglot opening book")
             except Exception as e:
                 logging.warning(f"Failed to load Polyglot opening book: {e}")
-        self.transposition_table = {}  # Simplified for mobile
-        self.tt_max_size = 100000  # Reduced for mobile
+        self.transposition_table = {}
+        self.tt_max_size = 100000
         self.killer_moves = defaultdict(list)
         self.puzzle_database = [
             {"fen": "rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1",
-             "move": "Nf3", "task": "Find the best move to develop a piece."}
+             "move": "Nf3", "task": "Find the best move to develop a piece."},
+            {"fen": "r1bqk2r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 2",
+             "move": "d4", "task": "Challenge the center and gain space."},
+            {"fen": "rnbqkb1r/pppp1ppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 1",
+             "move": "e4", "task": "Play a central move to prepare a knight fork."}
         ]
         self.nnue = AdvancedNNUEEvaluator(self.config.NNUE_FILE) if self.config.USE_NNUE else None
+        self.policy_network = PolicyNetwork() if torch else None
 
     def evaluate_position(self, board: chess.Board) -> int:
         if self.tablebase and board.is_game_over():
@@ -240,10 +319,10 @@ class ShinigamiEngine:
                     min_piece = square
             if min_piece is None:
                 break
-            move = chess.Move(min_piece, target_square)
-            if move not in board.legal_moves:
+            cap_move = chess.Move(min_piece, target_square)
+            if cap_move not in board.legal_moves:
                 break
-            board.push(move)
+            board.push(cap_move)
             gain.append(piece_values.get(board.piece_at(target_square).piece_type, 0) if board.piece_at(target_square) else 0)
             us, them = them, us
             attackers = board.attackers(them, target_square)
@@ -293,6 +372,10 @@ class ShinigamiEngine:
         for move in board.legal_moves:
             score = self.see(board, move) if board.is_capture(move) else 0
             move_scores.append((move, score))
+        # CNN Policy Network ordering if available
+        if self.policy_network and torch:
+            # (Mobile optimization: use basic ordering for now, but can integrate policy probs)
+            pass
         move_scores.sort(key=lambda x: x[1], reverse=True)
         ordered_moves = [move for move, _ in move_scores]
         best_move = None
@@ -344,6 +427,13 @@ class ShinigamiEngine:
         move = self.get_opening_move(board)
         if move and move in board.legal_moves:
             return move
+        # Check dynamic opening book (from self-play)
+        key = board.fen()[:50]
+        if key in self.training_module.opening_book:
+            candidates = [m for m in board.legal_moves]
+            weights = [self.training_module.opening_book[key]['weight'] for m in candidates]
+            if candidates and weights:
+                return random.choices(candidates, weights=weights, k=1)[0]
         return self.iterative_deepening(board, depth, self.config.TIME_CONTROLS[difficulty])[0]
 
     def get_opening_move(self, board: chess.Board) -> chess.Move:
@@ -397,10 +487,12 @@ class ShinigamiEngine:
                 puzzle_move, puzzle_task = self.generate_puzzle(board)
                 if puzzle_move:
                     print(f"Puzzle Mode: {puzzle_task}\n")
+                    speak_text(puzzle_task)
                     while True:
                         move_input = input("Your move (or 'retry'/'exit'): ").strip().lower()
                         if move_input == "exit":
                             logging.info("Player exited puzzle mode")
+                            speak_text("Leaving the puzzle. Coward.")
                             return
                         elif move_input == "retry":
                             continue
@@ -408,12 +500,14 @@ class ShinigamiEngine:
                             move = board.parse_san(move_input)
                             if move == puzzle_move:
                                 print("Puzzle solved! Want another? (y/n)")
+                                speak_text("Puzzle solved. Impressive!")
                                 logging.info("Puzzle solved correctly")
                                 if input().strip().lower() == 'y':
                                     board = chess.Board()
                                     puzzle_move, puzzle_task = self.generate_puzzle(board)
                                     if not puzzle_move:
                                         print("No more puzzles available. Switching to medium mode.")
+                                        speak_text("No more puzzles. Switching to Medium.")
                                         difficulty = "medium"
                                         depth = self.config.DEPTHS["medium"]
                                         break
@@ -422,9 +516,12 @@ class ShinigamiEngine:
                                     return
                             else:
                                 print("Wrong move! Try again or 'retry'.")
+                                speak_text("Wrong move. Try again.")
                                 logging.warning(f"Incorrect puzzle move: {move_input}")
                         except ValueError:
-                            print(random.choice(self.config.TRASH_TALK["invalid"]))
+                            msg = random.choice(self.config.TRASH_TALK["invalid"])
+                            print(msg)
+                            speak_text(msg)
                             continue
             elif board.turn == ai_color:
                 print("Shinigami is plotting your demise...")
@@ -432,10 +529,14 @@ class ShinigamiEngine:
                 if move:
                     board.push(move)
                     logging.info(f"AI move: {move}")
+                    msg = None
                     if board.is_check():
-                        print(random.choice(self.config.TRASH_TALK["check"]))
+                        msg = random.choice(self.config.TRASH_TALK["check"])
                     elif board.is_capture(move):
-                        print(random.choice(self.config.TRASH_TALK["capture"]))
+                        msg = random.choice(self.config.TRASH_TALK["capture"])
+                    if msg:
+                        print(msg)
+                        speak_text(msg)
             else:
                 move_input = input("Your move: ").strip().lower()
                 if move_input == "quit":
@@ -443,26 +544,40 @@ class ShinigamiEngine:
                 try:
                     move = board.parse_san(move_input)
                     board.push(move)
+                    # Learn from opponent for dynamic opening book
+                    self.training_module.update_opening_book(board, [move.uci()], board.result() if board.is_game_over() else "ongoing")
                 except ValueError:
-                    print(random.choice(self.config.TRASH_TALK["invalid"]))
+                    msg = random.choice(self.config.TRASH_TALK["invalid"])
+                    print(msg)
+                    speak_text(msg)
                     logging.warning(f"Invalid move input: {move_input}")
         result = board.result()
         if result == "1-0":
-            print(random.choice(self.config.TRASH_TALK["loss"]))
+            msg = random.choice(self.config.TRASH_TALK["loss"])
+            print(msg)
+            speak_text(msg)
             logging.info("Game ended: White wins")
         elif result == "0-1":
-            print(random.choice(self.config.TRASH_TALK["win"]))
+            msg = random.choice(self.config.TRASH_TALK["win"])
+            print(msg)
+            speak_text(msg)
             logging.info("Game ended: Black wins")
         else:
-            print(random.choice(self.config.TRASH_TALK["draw"]))
+            msg = random.choice(self.config.TRASH_TALK["draw"])
+            print(msg)
+            speak_text(msg)
             logging.info("Game ended: Draw")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Shinigami Chess Engine for Pydroid 3")
     parser.add_argument('--cores', type=int, default=ShinigamiConfig.NUM_PROCESSES, help="Number of CPU cores to use")
+    parser.add_argument('--self-play', type=int, default=0, help="Run self-play training games")
     args = parser.parse_args()
     ShinigamiConfig.NUM_PROCESSES = min(max(1, args.cores), mp.cpu_count())
     mp.set_start_method('spawn', force=True)
     engine = ShinigamiEngine()
-    engine.play_chess_with_ai(chess.BLACK)
+    if args.self_play > 0:
+        engine.training_module.self_play(engine, args.self_play)
+    else:
+        engine.play_chess_with_ai(chess.BLACK)
