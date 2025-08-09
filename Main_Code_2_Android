@@ -177,12 +177,14 @@ class ShinigamiConfig:
         "invalid": [
             "That’s not a move, it’s a cry for help!",
             "Illegal move! Do you even chess?",
-            "Invalid move! Borrowed from a 1000-rated game?"
+            "Invalid move! Borrowed from a 1000-rated game?",
+            "that move is so illogical that I can't differentiate if you're playing wrong or existing the wrong way."
         ],
         "opening": [
             "London System? Weak.",
             "King’s Pawn? How original.",
-            "Sicilian? Bold, but I’ll shred you."
+            "Sicilian? Bold, but I’ll shred you.",
+            "You still follow theory? I am the Einstein of Chess."
         ],
         "time_pressure": [
             "Tick-tock, your clock’s screaming.",
