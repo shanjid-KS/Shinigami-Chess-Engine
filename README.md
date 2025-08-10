@@ -1,6 +1,6 @@
 ---
 
-# Shinigami Chess Engine (Latest, V.1.17.9 – Gen 2 Edition)
+# Shinigami Chess Engine (V.1.17.9 – Gen 2 Edition)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-FF4136?labelColor=gray)
 ![Python](https://img.shields.io/badge/language-Python_3.8+-2ECC40?labelColor=gray)
