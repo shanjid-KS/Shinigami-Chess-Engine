@@ -1,13 +1,41 @@
 ---
 
-# Shinigami Chess Engine (Outdated)
+# Shinigami Chess Engine (Latest, V.1.17.9 – Gen 2 Edition)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-FF4136?labelColor=gray)
 ![Python](https://img.shields.io/badge/language-Python_3.8+-2ECC40?labelColor=gray)
 ![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-0074D9?labelColor=gray)
 
-**Shinigami V.1.16.9 – Gen 2 Edition**(Outdated) 
-_A professional chess engine with full tree parallelization, advanced NNUE evaluation, self-adapting features, and a cosmic sense of humor._
+**Shinigami V.1.17.9 – Gen 2 Edition (Latest)**  
+_A professional chess engine with full tree parallelization, advanced NNUE evaluation, self-adapting features, enhanced puzzle system._
+
+---
+
+## 🚀 Latest Updates (V.1.17.9)
+- **New Tactical Puzzle Generator:** Expanded database and improved task description for puzzle mode.  
+- **Dynamic Opening Book Pruning:** Opening book now self-prunes weak lines, adapts even better to new opponents.  
+- **Improved Evaluation:**  
+  - Advanced king safety, pawn structure, mobility, and outpost detection.  
+  - Enhanced rook/queen evaluation for open/semi-open files and connected pieces.  
+- **NNUE & Policy Network:**  
+  - Now supports full HalfKAv2 encoding for evaluation.  
+  - CNN-based move-ordering with training from self-play is improved and weights auto-loaded.  
+- **Genetic Feature Engineering:**  
+  - Automated tuning for piece values and PSTs mid-game using DEAP.  
+- **Trash Talk Engine:**  
+  - Expanded, even more brutal/funny commentary (can be customized/disabled).  
+- **Extreme Mode Safeguards:**  
+  - “The Big Bang” mode is blocked by default, with triple-confirmation required on joke/extreme modes.  
+- **Syzygy Tablebase:**  
+  - Improved fallback and logging when tablebases not found.  
+- **UCI Protocol:**  
+  - Enhanced support for GUIs and time controls, automatic detection of options.
+- **Multiprocessing:**  
+  - Cross-platform safe, uses optimal pool sizes and dynamic chunking per system.
+- **Voice Commentary:**  
+  - TTS engine (pyttsx3) initialization improved; will warn/fallback if unavailable.
+- **Logging:**  
+  - Cleaner, more informative logs per game, search, and training.
 
 ---
 
@@ -33,8 +61,8 @@ _A professional chess engine with full tree parallelization, advanced NNUE evalu
 
 **Clone the Repository:**
 ```bash
-git clone https://github.com/Tonmoy-KS/Shinigami
-cd Shinigami
+git clone https://github.com/Tonmoy-KS/Shinigami-Chess-Engine
+cd Shinigami-Chess-Engine
 ```
 
 **Install Dependencies:**
@@ -54,24 +82,27 @@ pip install -r requirements.txt
 
 **Console Mode:**
 ```bash
-python3 shinigami_Engine.py
+python3 Main_Code_1
 ```
 
 **GUI Mode:**
 ```bash
-python3 shinigami_Engine.py --gui
+python3 Main_Code_1 --gui
 ```
 
 **Self-Play & Training:**
 ```bash
-python3 shinigami_Engine.py --self-play 100
-python3 shinigami_Engine.py --train-nnue
-python3 shinigami_Engine.py --auto-tune
+python3 Main_Code_1 --self-play 100
 ```
 
 **Custom Paths & Cores:**
 ```bash
-python3 shinigami_Engine.py --cores 4 --nnue-file /path/to/my_nnue.bin --syzygy-path /path/to/my_tablebases
+python3 Main_Code_1 --cores 4 --nnue-file /path/to/my_nnue.bin --syzygy-path /path/to/my_tablebases
+```
+
+**UCI Protocol (for chess GUIs):**
+```bash
+python3 Main_Code_1 --uci
 ```
 
 ---
@@ -104,51 +135,50 @@ The engine includes several extreme difficulty modes.
 
 ### FAQ
 
-1. What makes Shinigami different from other chess engines?
-A: Shinigami features full tree parallelization, advanced NNUE, CNN policy network, genetic feature engineering, and a unique "trash talk" engine.
+1. **What makes Shinigami different from other chess engines?**  
+   Full tree parallelization, advanced NNUE, CNN policy network, genetic feature engineering, and a unique "trash talk" engine and LLM-powered Explanations.
 
-2. How do I enable the "Trash Talk" feature?
-A: It's enabled by default! Prepare for witty, sometimes brutal, commentary during gameplay.
+2. **How do I enable the "Trash Talk" feature?**  
+   It's enabled by default! Prepare for witty, sometimes brutal, commentary during gameplay.
 
-3. What about the "The Big Bang" and "Dialing Satan's Number" modes? Are they real?
-A: These are extreme, experimental modes. "The Big Bang" offers infinite depth and time, but it's blocked for safety. "Dialing Satan's Number" has a intentional 69 Eons long time control. They exist for fun, but use the triple confirmation ritual wisely; Shinigami may Force your firmware to summon Cthulhu,so the Engine can have a Buddy to drink tea.
+3. **What about the "The Big Bang" and "Dialing Satan's Number" modes? Are they real?**  
+   Extreme, experimental modes. "The Big Bang" is blocked for safety. "Dialing Satan's Number" is a meme with massive time control.
 
-4. Is there support for custom opening books, and how does Shinigami learn/adapt openings from self-play or opponents?
-A: Yes, it absolutely does.
+4. **Does Shinigami learn/adapt openings from self-play or opponents?**  
+   Absolutely, with dynamic pruning and statistics.
 
-5. What's the best way to train or improve the Policy Network and NNUE modules?
-A: You can learn it from someone else, and there are instructions.
+5. **How do I train/improve the Policy Network and NNUE modules?**  
+   Use self-play, or provide your own datasets. See code for details.
 
-6. How does the engine's trash talk feature work, and can it be customized or disabled?
-A: Yes, it can be customized, and you can disable it by wiping the entire module's dictionary.
+6. **Can I customize/disable the engine's trash talk?**  
+   Yes, modify the dictionary in the source or set it to empty.
 
-7. Are there known limitations or funny side effects when using Syzygy tablebases or the deepest search modes?
-A: The only answer is 'Your Firmware may summon Outer Gods if you use the Deepest Search modes'.
+7. **Are there known limitations or funny side effects using Syzygy or deepest modes?**  
+   "Your Firmware may summon Outer Gods if you use the Deepest Search modes."
 
-8. Is Shinigami UCI-compliant for easy integration with chess GUIs?
-A: It has UCI protocols.
+8. **Is Shinigami UCI-compliant for GUIs?**  
+   Yes, with enhanced and auto-detected options.
 
-9. Can users contribute their own neural weights, feature sets, or puzzles?
-A: Absolutely. Thanks for the help!
+9. **Can users contribute their own neural weights, feature sets, or puzzles?**  
+   Absolutely, contributions are welcome!
 
-10. What should users do if the engine crashes or their hardware is "atomized" by extreme settings?
-A: Ahem, you should've read what you agreed to when the 3 Confirmation Ritual was happening.
+10. **What if the engine crashes or hardware is "atomized" by extreme settings?**  
+    Read the triple-confirmation warnings. Proceed at your own risk!
 
-11. What are the recommended system requirements for running Shinigami, especially for the more extreme difficulty modes?
-A: The difficulty modes from 6-8 are purely for memes. I heavily recommend you don't use those and use the first 5.
+11. **Recommended system requirements for extreme modes?**  
+    Use first five modes for stability. Experimental/joke modes are for memes only.
 
-12. How does Shinigami handle different time controls (e.g., blitz, rapid, classical), and are there specific settings to optimize performance for each?
-A: Yes, you can change the time controls to the specific mode in the source code.
+12. **How does Shinigami handle different time controls and optimize for each?**  
+    Time controls are adjustable in code and via command-line.
 
-13. Can users customize the engine's playing style beyond just difficulty settings (e.g., more aggressive, positional)?
-A: Currently no, but I will soon add an option.
+13. **Can users customize playing style (aggressive, positional)?**  
+    Planned for future update!
 
-14. What are the key differences or improvements in the "Gen 2 Edition" compared to previous generations of Shinigami?
-A: The Gen 2 started after V.1.10.0, after the Beta Testing phase was over.
+14. **Key differences in "Gen 2 Edition"?**  
+    Major improvements after V.1.10.0; see "Latest Updates" above.
 
-15. Is there a roadmap for future development or upcoming features for Shinigami?
-A: I have an outline planning system for my engine, which I cannot publicly share.
-License
+15. **Roadmap for future development?**  
+    Yes, but not public.
 
 ---
 
