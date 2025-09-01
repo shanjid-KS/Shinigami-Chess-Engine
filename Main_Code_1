@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami Engine V.1.18.0 – A Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami Engine V.1.18.2 – A Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (By Github)
 Coding Language: Python 3 
@@ -122,7 +122,7 @@ def get_llm_explanation(context: LLMContext) -> str:
     - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast(e.g., After searching a million nodes/positions, I have ___) and also enhance your explanations.
     - SarcML Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team.
 
-- Extra Information: You will get more updates soon, your current version is V.V.1.18.0, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
+- Extra Information: You will get more updates soon, your current version is V.1.18.2, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
 
 Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient and Appropriate explanations of your move and also criticize opponents with satirical, Biased and also Reasoning and helpful comments. Don't use emojis and use emoticons because you don't have Emoji support and only ASCII characters.
 
@@ -160,7 +160,7 @@ Good luck to me !
 # Engine Configuration
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.V.1.18.0 - Gen 2"
+    ENGINE_NAME = "Shinigami V.1.18.2 - Gen 2"
     USE_LLM_EXPLANATIONS = True # On by Default.
     PIECE_VALUES = {
         chess.PAWN: 100,
@@ -908,6 +908,31 @@ class ShinigamiEngine:
                 if abs(chess.square_file(black_passed[i]) - chess.square_file(black_passed[j])) <= 1:
                     score -= 30
 
+        # A passed pawn is a future asset. Its value increases dramatically
+        # if the opponent has few pieces left to stop it.
+        for pawn_sq in white_passed:
+            rank = chess.square_rank(pawn_sq)
+            if rank >= 5: # Only for advanced passed pawns
+                promotion_path = [chess.square(chess.square_file(pawn_sq), r) for r in range(rank + 1, 8)]
+                defenders = 0
+                for path_sq in promotion_path:
+                    defenders += len(board.attackers(chess.BLACK, path_sq))
+                
+                if defenders <= 1:
+                    # This pawn is a monster. Its value approaches a minor or even major piece.
+                    score += (150 + (rank - 5) * 100) / (defenders + 1)
+
+        for pawn_sq in black_passed:
+            rank = chess.square_rank(pawn_sq)
+            if rank <= 2: # Only for advanced passed pawns
+                promotion_path = [chess.square(chess.square_file(pawn_sq), r) for r in range(rank - 1, -1, -1)]
+                defenders = 0
+                for path_sq in promotion_path:
+                    defenders += len(board.attackers(chess.WHITE, path_sq))
+
+                if defenders <= 1:
+                    score -= (150 + (2 - rank) * 100) / (defenders + 1)
+
         # Backward Pawns
         for pawn_sq in white_pawns:
             if not any(board.piece_at(sq) and board.piece_at(sq).piece_type == chess.PAWN and board.piece_at(sq).color == chess.WHITE for sq in board.attackers(chess.BLACK, pawn_sq)):
@@ -1045,6 +1070,29 @@ class ShinigamiEngine:
             if pawns_on_same_color_sqs > 3:
                 score += pawns_on_same_color_sqs * 4
 
+        # Bishop as a Scalpel: Bonus for long-range bishops slicing through gaps.
+        for bishop_sq in board.pieces(chess.BISHOP, chess.WHITE):
+            attacks = board.attacks(bishop_sq)
+            if len(attacks) > 9: # Bishop has long scope
+                score += 10
+        for bishop_sq in board.pieces(chess.BISHOP, chess.BLACK):
+            attacks = board.attacks(bishop_sq)
+            if len(attacks) > 9:
+                score -= 10
+
+        # Queen's Knight-Vision Blindspot: Look for potential knight forks on the enemy queen.
+        white_queen_sq = board.king(chess.BLACK) # board.king() returns queen square in crazyhouse
+        if white_queen_sq is not None:
+             for knight_sq in board.pieces(chess.KNIGHT, chess.BLACK):
+                 if white_queen_sq in board.attacks(knight_sq):
+                     score -= 15 # Threat is present
+        
+        black_queen_sq = board.king(chess.WHITE) # vice versa
+        if black_queen_sq is not None:
+             for knight_sq in board.pieces(chess.KNIGHT, chess.WHITE):
+                 if black_queen_sq in board.attacks(knight_sq):
+                     score += 15
+
         # Dynamic Factors
         if game_phase == "opening":
             # Tempo Advantage (Development)
@@ -1109,6 +1157,19 @@ class ShinigamiEngine:
                     if board.piece_at(chess.square(file, chess.square_rank(square) - 1)) == chess.Piece(chess.ROOK, chess.BLACK) or \
                        board.piece_at(chess.square(file, chess.square_rank(square) + 1)) == chess.Piece(chess.ROOK, chess.BLACK):
                        score -= 10
+
+        # If in the middlegame with a slight advantage, favor trading queens
+        # to enter a more calculable phase.
+        if game_phase == "middlegame":
+            has_white_queen = bool(board.pieces(chess.QUEEN, chess.WHITE))
+            has_black_queen = bool(board.pieces(chess.QUEEN, chess.BLACK))
+
+            # If queens are off the board and we are winning, it's a good state.
+            if not has_white_queen and not has_black_queen:
+                if score > 150: # If White is better
+                    score += 20
+                elif score < -150: # If Black is better
+                    score -= 20
 
         self.eval_cache[board_hash] = score
         return score
